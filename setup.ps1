@@ -292,7 +292,8 @@ function Install-NewProject {
     if ($wantDsgvo) { Copy-Item "$src\dsgvo.md" "$Path\.claude\agents\dsgvo.md" -Force; Replace-Placeholders "$Path\.claude\agents\dsgvo.md" -Name $UserName; $extras += "DSGVO" }
     if ($wantDba)   { Copy-Item "$src\dba.md"   "$Path\.claude\agents\dba.md"   -Force; Replace-Placeholders "$Path\.claude\agents\dba.md"   -Name $UserName; $extras += "DBA" }
     if ($wantPerf)  { Copy-Item "$src\perf.md"  "$Path\.claude\agents\perf.md"  -Force; Replace-Placeholders "$Path\.claude\agents\perf.md"  -Name $UserName; $extras += "PERF" }
-    $agentList = "PM, BE, FE, QA, SEC" + (if ($extras.Count -gt 0) { ", " + ($extras -join ", ") } else { "" })
+    $agentList = "PM, BE, FE, QA, SEC"
+    if ($extras.Count -gt 0) { $agentList += ", " + ($extras -join ", ") }
     Write-Host "  [OK] Agents: $agentList" -ForegroundColor Green
 
     # Docs
