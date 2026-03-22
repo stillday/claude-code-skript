@@ -505,8 +505,11 @@ Möchtest du alle empfohlenen Skills installieren? (j/N)
 Oder wähle einzeln: [1,2,3...]
 ```
 
-Wenn [USER] mit "j" antwortet → alle empfohlenen installieren.
-Wenn einzeln → nur die gewählten.
+**PFLICHT vor jeder Installation:** `mcp-skill-safety` Skill aktivieren und Prüfbericht zeigen.
+Kein Skill und kein MCP wird ohne Safety Check und explizite Bestätigung von [USER] installiert.
+
+Wenn [USER] mit "j" antwortet → Safety Check für jeden Skill → dann installieren.
+Wenn einzeln → Safety Check + nur die gewählten.
 Wenn "n" → überspringen, später mit `/find-skills [query]` nachholen.
 
 ### Git-Provider spezifische MCPs (automatisch nach Frage 9)
@@ -647,11 +650,13 @@ grep -E '"context7"|"playwright"|"github"|"supabase"|"magic"|"shadcn"|"docker"|"
 
 **MCPmarket — bevorzugter Weg für MCP-Suche und -Installation:**
 
-Wenn `mcpmarket` in `settings.json` konfiguriert ist, nutze es direkt für die MCP-Suche:
+Wenn `mcpmarket` in `settings.json` konfiguriert ist, nutze es für die MCP-Suche.
+**Aber:** Jeden MCPmarket-Vorschlag vor Installation mit `mcp-skill-safety` prüfen —
+das Tool selbst ist sicher, die vorgeschlagenen MCPs sind es nicht automatisch.
+
 ```
 "Suche einen MCP für Stripe auf MCPmarket"
-"Installiere den Resend MCP von MCPmarket"
-"Welche MCPs gibt es für Monitoring?"
+→ Ergebnis prüfen → Safety Check → [USER] zeigen → erst dann installieren
 ```
 
 Falls `mcpmarket` noch nicht eingerichtet ist → in `settings.json` eintragen:

@@ -138,6 +138,24 @@ Bei jeder neuen Business-Funktion prüfen:
 - Prepared Statements/ORM immer für DB-Queries
 - Auth-Checks Server-seitig, nie nur Client-seitig
 
+### Skills & MCPs — Pflichtregeln (NIEMALS umgehen)
+
+**Vor jeder Installation eines Skills oder MCP-Servers gilt ohne Ausnahme:**
+
+1. **Safety Check zuerst** — `mcp-skill-safety` Skill aktivieren und Prüfung durchführen
+2. **Niemals blind installieren** — egal wie harmlos es aussieht
+3. **Immer [USER] zeigen was installiert wird** — mit Publisher, Install-Count, socket.dev-Link
+4. **Niemals ohne explizite Bestätigung von [USER] installieren**
+5. **MCPmarket-Vorschläge** werden einzeln geprüft — das Tool selbst ist sicher, die vorgeschlagenen MCPs nicht automatisch
+
+**Vertrauens-Hierarchie:**
+
+| Tier | Publisher-Beispiele | Vorgehen |
+|------|--------------------|-|
+| ✅ Tier 1 | Anthropic, GitHub, Supabase, Stripe, Vercel, Docker, Sentry | Prüfen + kurz zeigen, dann installieren |
+| ⚠️ Tier 2 | Bekannte OSS-Maintainer (>500 Stars), skills.sh Top-100 | socket.dev prüfen, [USER] zeigen |
+| ❌ Tier 3 | Unbekannte Publisher, anonyme Pakete, < 30 Tage alt | Ablehnen und begründen |
+
 ---
 
 ## Code Review Checkliste
