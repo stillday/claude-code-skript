@@ -1,0 +1,45 @@
+name: Bump CalVer Version
+
+on:
+  push:
+    branches: [main]
+    # Verhindert Endlosschleife: Skip wenn commit von CI kommt
+    paths-ignore:
+      - 'VERSION'
+      - 'VERSION.counter'
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+    # Nur wenn NICHT ein version-bump Commit
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # PAT statt GITHUB_TOKEN — braucht push + tag Rechte
+          token: ${{ secrets.GH_PAT }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Bump CalVer
+        run: bash scripts/bump-version-calver.sh
+
+      - name: Commit & Tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          VERSION=$(cat VERSION)
+          git add VERSION VERSION.counter package.json
+          git commit -m "chore: bump version to ${VERSION} [skip ci]"
+          git tag "v${VERSION}"
+          git push origin main
+          git push origin "v${VERSION}"
+
+      - name: Summary
+        run: echo "Released v$(cat VERSION)"

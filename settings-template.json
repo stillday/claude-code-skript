@@ -1,0 +1,117 @@
+{
+  "_comment": "Kopiere diese Datei nach ~/.claude/settings.json. Ersetze ALLE Platzhalter in [GROSSBUCHSTABEN].",
+
+  "language": "German",
+  "autoUpdatesChannel": "latest",
+  "voiceEnabled": true,
+
+  "extraKnownMarketplaces": {
+    "svelte": {
+      "source": {
+        "source": "github",
+        "repo": "sveltejs/ai-tools"
+      }
+    }
+  },
+
+  "mcpServers": {
+    "context7": {
+      "_comment": "Dokumentation für Libraries und Frameworks",
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@upstash/context7-mcp@latest"]
+    },
+    "playwright": {
+      "_comment": "Browser-Automatisierung und E2E Testing",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
+    },
+    "github": {
+      "_comment": "GitHub Integration — PAT mit repo, workflow Rechten",
+      "command": "docker",
+      "args": [
+        "run", "--rm", "-i",
+        "-e", "GITHUB_PERSONAL_ACCESS_TOKEN",
+        "ghcr.io/github/github-mcp-server"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "[DEIN_GITHUB_PAT]"
+      }
+    },
+    "supabase": {
+      "_comment": "Supabase Haupt-Projekt",
+      "command": "npx",
+      "args": [
+        "-y", "@supabase/mcp-server-supabase@latest",
+        "--access-token", "[DEIN_SUPABASE_ACCESS_TOKEN]"
+      ]
+    },
+    "magic": {
+      "_comment": "21st.dev Magic — UI Komponenten generieren",
+      "command": "npx",
+      "args": ["-y", "@21st-dev/magic@latest"],
+      "env": {
+        "TWENTY_FIRST_API_KEY": "[DEIN_21ST_DEV_API_KEY]"
+      }
+    },
+    "shadcn": {
+      "_comment": "shadcn/ui Komponenten",
+      "command": "npx",
+      "args": ["-y", "shadcn-mcp@latest"]
+    },
+    "docker": {
+      "_comment": "Docker Container Management",
+      "command": "npx",
+      "args": ["-y", "@docker/mcp-server@latest"]
+    },
+    "sentry": {
+      "_comment": "Error Tracking und Monitoring",
+      "command": "npx",
+      "args": ["-y", "@sentry/mcp-server@latest"]
+    },
+    "memory": {
+      "_comment": "Persistenter Memory-Store (cross-session)",
+      "command": "cmd",
+      "args": ["/c", "npx", "-y", "@modelcontextprotocol/server-memory@latest"]
+    }
+  },
+
+  "hooks": {
+    "Stop": [
+      {
+        "_comment": "Checkliste nach jeder Session anzeigen",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"\n=== SESSION CHECKLIST ===\n[ ] Tests geschrieben fuer neue Funktionen?\n[ ] Commit-Groesse <= 300 Zeilen?\n[ ] Keine Secrets im Code?\n[ ] Branch korrekt benannt?\n=========================\""
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "_comment": "Warnung bei git push auf main",
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo \"[GIT-CHECK] Sicherstellen: Kein direkter Push auf main/master!\""
+          }
+        ]
+      }
+    ]
+  },
+
+  "permissions": {
+    "allow": [
+      "Bash(git *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(node *)",
+      "Bash(ssh jan@62.171.190.227 *)"
+    ],
+    "deny": [
+      "Bash(git push --force *)",
+      "Bash(git push -f *)"
+    ]
+  }
+}

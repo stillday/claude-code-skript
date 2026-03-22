@@ -1,0 +1,53 @@
+name: Bump SemVer Version
+
+on:
+  # Manuell auslösen mit Typ-Auswahl
+  workflow_dispatch:
+    inputs:
+      bump_type:
+        description: 'Version Typ'
+        required: true
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+  # ODER: automatisch bei Push auf main (immer patch)
+  # push:
+  #   branches: [main]
+  #   paths-ignore: ['VERSION']
+
+jobs:
+  bump-version:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GH_PAT }}
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Bump SemVer (${{ github.event.inputs.bump_type || 'patch' }})
+        run: bash scripts/bump-version-semver.sh ${{ github.event.inputs.bump_type || 'patch' }}
+
+      - name: Commit & Tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          VERSION=$(cat VERSION)
+          git add VERSION package.json
+          git commit -m "chore: bump version to ${VERSION} [skip ci]"
+          git tag "v${VERSION}"
+          git push origin main
+          git push origin "v${VERSION}"
+
+      - name: Summary
+        run: echo "Released v$(cat VERSION)"

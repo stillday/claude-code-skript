@@ -1,0 +1,14 @@
+# Lokale Claude-Settings (enthalten User-spezifische Pfade)
+.claude/settings.local.json
+
+# Node
+node_modules/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# OS
+.DS_Store
+Thumbs.db

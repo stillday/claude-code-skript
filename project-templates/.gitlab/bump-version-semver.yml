@@ -1,0 +1,31 @@
+# GitLab CI — SemVer Version Bump
+# Manuell über GitLab UI auslösen: CI/CD → Pipelines → Run Pipeline
+# Variable BUMP_TYPE setzen: patch | minor | major
+
+bump-version-semver:
+  stage: release
+  image: node:20-alpine
+
+  rules:
+    # Nur manuell auslösbar
+    - if: '$CI_PIPELINE_SOURCE == "web"'
+    - when: never
+
+  variables:
+    BUMP_TYPE: "patch"  # Standard, überschreibbar beim Auslösen
+
+  before_script:
+    - apk add --no-cache git bash
+    - git config user.email "gitlab-ci@${CI_SERVER_HOST}"
+    - git config user.name "GitLab CI"
+    - git remote set-url origin "https://oauth2:${CI_BUMP_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+
+  script:
+    - bash scripts/bump-version-semver.sh ${BUMP_TYPE}
+    - VERSION=$(cat VERSION)
+    - git add VERSION package.json
+    - git commit -m "chore: bump version to ${VERSION} [skip ci]"
+    - git tag "v${VERSION}"
+    - git push origin HEAD:main
+    - git push origin "v${VERSION}"
+    - echo "Released v${VERSION}"
