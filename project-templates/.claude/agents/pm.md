@@ -641,9 +641,29 @@ npx skills add gdpr-dsgvo-expert -g -y
 
 **Bereits konfiguriert (prüfen ob aktiv):**
 ```bash
-grep -E '"context7"|"playwright"|"github"|"supabase"|"magic"|"shadcn"|"docker"|"sentry"|"memory"' \
+grep -E '"context7"|"playwright"|"github"|"supabase"|"magic"|"shadcn"|"docker"|"sentry"|"memory"|"mcpmarket"' \
   ~/.claude/settings.json
 ```
+
+**MCPmarket — bevorzugter Weg für MCP-Suche und -Installation:**
+
+Wenn `mcpmarket` in `settings.json` konfiguriert ist, nutze es direkt für die MCP-Suche:
+```
+"Suche einen MCP für Stripe auf MCPmarket"
+"Installiere den Resend MCP von MCPmarket"
+"Welche MCPs gibt es für Monitoring?"
+```
+
+Falls `mcpmarket` noch nicht eingerichtet ist → in `settings.json` eintragen:
+```json
+"mcpmarket": {
+  "command": "npx",
+  "args": ["-y", "@mcpmarket/mcp-auto-install", "connect"]
+}
+```
+Kein API-Key nötig. Danach Claude Code neu starten.
+
+Fallback wenn mcpmarket nicht verfügbar: `npx skills find "mcp [tool]"` (siehe unten).
 
 **Für SvelteKit-Projekte immer vorschlagen:**
 ```

@@ -72,6 +72,11 @@
       "_comment": "Persistenter Memory-Store (cross-session)",
       "command": "cmd",
       "args": ["/c", "npx", "-y", "@modelcontextprotocol/server-memory@latest"]
+    },
+    "mcpmarket": {
+      "_comment": "MCPmarket.com — MCP-Server per natuerlicher Sprache suchen und installieren. Kein API-Key noetig. Nutzung: 'Suche einen MCP fuer X' oder 'Installiere den Y MCP'",
+      "command": "npx",
+      "args": ["-y", "@mcpmarket/mcp-auto-install", "connect"]
     }
   },
 

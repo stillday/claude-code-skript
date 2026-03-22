@@ -698,6 +698,30 @@ if (-not $GlobalOnly) {
     }
 }
 
+# --- MCPmarket einrichten ---
+function Setup-McpMarket {
+    # Pruefen ob claude CLI verfuegbar ist
+    if (-not (Get-Command claude -ErrorAction SilentlyContinue)) { return }
+
+    # Pruefen ob mcpmarket bereits konfiguriert ist
+    $existing = claude mcp list 2>$null
+    if ($existing -match "mcpmarket") {
+        Write-Host "  MCPmarket MCP bereits konfiguriert." -ForegroundColor DarkGray
+        return
+    }
+
+    Write-Host ""
+    Write-Host "  MCPmarket.com — MCP-Server per Sprache suchen und installieren" -ForegroundColor White
+    Write-Host "  Kein API-Key noetig. Einmal einrichten, dauerhaft nutzen." -ForegroundColor DarkGray
+    if (Ask-YesNo "  MCPmarket MCP einrichten? (j/N)") {
+        claude mcp add mcpmarket --scope user -- npx -y @mcpmarket/mcp-auto-install connect 2>&1 | Out-Null
+        Write-Host "  [OK] MCPmarket MCP eingerichtet." -ForegroundColor Green
+        Write-Host "       Nutzung im Chat: 'Suche einen MCP fuer Stripe' oder 'Installiere den Resend MCP'" -ForegroundColor DarkGray
+    }
+}
+
+Setup-McpMarket
+
 # --- Auto-Update-Check einrichten ---
 function Setup-AutoUpdate {
     $scheduleScript = "$ScriptDir\schedule-updates.ps1"
