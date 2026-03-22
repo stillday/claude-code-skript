@@ -8,14 +8,14 @@
 
 ## Kernidee
 
-[Was ist das Problem? Wie löst das Projekt es? 2-3 Sätze.]
+[BESCHREIBUNG]
 
 ---
 
 ## Zielgruppe
 
 **Primärer User:**
-[Beschreibung: wer, wie tech-affin, in welchem Kontext nutzt er die App?]
+[ZIELGRUPPE]
 
 **Sekundäre User (falls vorhanden):**
 [z.B. Admins, B2B-Kunden, interne Mitarbeiter]
@@ -24,9 +24,9 @@
 
 ## Must-Have Features (Launch)
 
-1. [Feature 1 — ohne das nicht launchbar]
-2. [Feature 2]
-3. [Feature 3]
+1. [FEATURE-1]
+2. [FEATURE-2]
+3. [FEATURE-3]
 
 ## Nice-to-Have (Post-Launch)
 
@@ -37,7 +37,7 @@
 
 ## Business-Kontext
 
-- **Typ:** Kommerziell / Internes Tool / Persönliches Projekt / Open Source
+- **Typ:** [PROJEKTTYP]
 - **Einnahmen-Modell:** Subscription / Einmalkauf / Kostenlos / n/a
 - **Timeline:** [Wann soll MVP live sein?]
 - **Versionierung:** SemVer `1.0.0` / CalVer `YYYY.MMDD.NNNN`

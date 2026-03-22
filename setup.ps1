@@ -152,6 +152,21 @@ function Replace-Placeholders {
     Set-Content $FilePath $c -NoNewline -Encoding UTF8
 }
 
+function Fill-ProjectBrief {
+    param([string]$FilePath, [hashtable]$Ctx)
+    if (-not (Test-Path $FilePath)) { return }
+    $c = Get-Content $FilePath -Raw -Encoding UTF8
+    if ($Ctx.Description) { $c = $c -replace '\[BESCHREIBUNG\]', $Ctx.Description }
+    if ($Ctx.Audience)    { $c = $c -replace '\[ZIELGRUPPE\]',   $Ctx.Audience }
+    if ($Ctx.Kind)        { $c = $c -replace '\[PROJEKTTYP\]',   $Ctx.Kind }
+    $feats = @()
+    if ($Ctx.Features) { $feats = $Ctx.Features -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ } }
+    if ($feats.Count -ge 1) { $c = $c -replace '\[FEATURE-1\]', $feats[0] }
+    if ($feats.Count -ge 2) { $c = $c -replace '\[FEATURE-2\]', $feats[1] }
+    if ($feats.Count -ge 3) { $c = $c -replace '\[FEATURE-3\]', $feats[2] }
+    Set-Content $FilePath $c -NoNewline -Encoding UTF8
+}
+
 function Show-Status {
     param([string]$Label, [bool]$Exists, [string]$Extra = "")
     $icon  = if ($Exists) { "[OK]" } else { "[  ]" }
@@ -264,13 +279,12 @@ function Show-SkillsInfo {
 # ============================================================
 
 function Install-NewProject {
-    param([string]$Path, [string]$Name, [string]$Type, [string]$Provider, [string]$Ver)
+    param([string]$Path, [string]$Name, [string]$Type, [string]$Provider, [string]$Ver, [hashtable]$Context = @{})
 
-    # Optionale Agents abfragen
-    Write-Host "`nOptionale Agents (PM, BE, FE, QA, SEC sind immer aktiv):" -ForegroundColor White
-    $wantDsgvo = Ask-YesNo "  DSGVO-Agent? (oeffentliche App mit Nutzerdaten) (j/N)"
-    $wantDba   = Ask-YesNo "  DBA-Agent?   (komplexes Datenbankschema) (j/N)"
-    $wantPerf  = Ask-YesNo "  PERF-Agent?  (performance-kritische App) (j/N)"
+    # Agents aus Kontext bestimmen (kein manuelles Abfragen noetig)
+    $wantDsgvo = $Context.HasUserData -eq $true
+    $wantDba   = $Context.HasDatabase -eq $true
+    $wantPerf  = $Context.IsPerf -eq $true
 
     Write-Host "`n--- Erstelle Projekt: $Name [$Type, $Provider, $Ver] ---" -ForegroundColor Cyan
 
@@ -303,6 +317,7 @@ function Install-NewProject {
     Copy-Item "$TemplateDir\docs\failed-approaches.md" "$Path\docs\failed-approaches.md" -Force
     Copy-Item "$TemplateDir\docs\project-brief.md"     "$Path\docs\project-brief.md"     -Force
     Replace-Placeholders "$Path\docs\project-brief.md" -Name $UserName -ProjName $Name
+    if ($Context.Count -gt 0) { Fill-ProjectBrief -FilePath "$Path\docs\project-brief.md" -Ctx $Context }
     Write-Host "  [OK] Docs: docs/adr/, failed-approaches.md, project-brief.md" -ForegroundColor Green
 
     # Scripts
@@ -648,6 +663,47 @@ function Save-ProjectsBase {
     $cfg | ConvertTo-Json | Set-Content $SetupConfigFile -Encoding UTF8
 }
 
+function Get-ProjectContext {
+    Write-Host ""
+    Write-Host "=== Projekt-Kontext ===" -ForegroundColor White
+    Write-Host "  Deine Antworten konfigurieren das Projekt und das Agent-Team automatisch." -ForegroundColor DarkGray
+    Write-Host ""
+
+    $desc     = Read-Host "  Was soll das Projekt koennen? (2-3 Saetze)"
+    $audience = Read-Host "  Fuer wen ist es? (Zielgruppe, z.B. 'interne Mitarbeiter', 'Endkunden')"
+    $features = Read-Host "  Die 3 wichtigsten Features (kommagetrennt)"
+
+    Write-Host ""
+    Write-Host "  Projekttyp:" -ForegroundColor White
+    Write-Host "    1) Kommerziell   (Produkt, SaaS, Shop)" -ForegroundColor Gray
+    Write-Host "    2) Internes Tool (Firma, Team)" -ForegroundColor Gray
+    Write-Host "    3) Hobby         (privates Projekt)" -ForegroundColor Gray
+    Write-Host "    4) Open Source   (oeffentlich, Community)" -ForegroundColor Gray
+    $k    = Read-Host "  Auswahl [1]"
+    $kind = switch ($k) {
+        "2" { "Internes Tool" }
+        "3" { "Hobby" }
+        "4" { "Open Source" }
+        default { "Kommerziell" }
+    }
+
+    Write-Host ""
+    Write-Host "  Automatische Agent-Konfiguration:" -ForegroundColor DarkGray
+    $hasUserData = Ask-YesNo "  Werden personenbezogene Nutzerdaten gespeichert? (j/N)  --> aktiviert DSGVO-Agent"
+    $hasDb       = Ask-YesNo "  Braucht das Projekt eine Datenbank?               (j/N)  --> aktiviert DBA-Agent"
+    $isPerf      = Ask-YesNo "  Ist Performance kritisch (hohe Last, Echtzeit)?   (j/N)  --> aktiviert PERF-Agent"
+
+    return @{
+        Description = $desc
+        Audience    = $audience
+        Features    = $features
+        Kind        = $kind
+        HasUserData = $hasUserData
+        HasDatabase = $hasDb
+        IsPerf      = $isPerf
+    }
+}
+
 function Start-ProjectWizard {
     param([string]$Name, [string]$Type, [string]$Path, [string]$Provider, [string]$Ver)
 
@@ -707,6 +763,9 @@ function Start-ProjectWizard {
     } else {
         Write-Host "`n  Kein Git-Repo - Modus: Neues Projekt erstellen" -ForegroundColor Cyan
 
+        # Projekt-Kontext erfassen (bevor technische Fragen)
+        $ctx = Get-ProjectContext
+
         # Alle Wizard-Fragen fuer neues Projekt
         if (-not $Type) {
             Write-Host "`nProjekttyp:" -ForegroundColor White
@@ -729,7 +788,7 @@ function Start-ProjectWizard {
             $Ver = if ($v -eq "2") { "semver" } else { "calver" }
         }
 
-        Install-NewProject -Path $Path -Name $Name -Type $Type -Provider $Provider -Ver $Ver
+        Install-NewProject -Path $Path -Name $Name -Type $Type -Provider $Provider -Ver $Ver -Context $ctx
     }
 
     Write-Host "`n=== Projekt '$Name' eingerichtet ===" -ForegroundColor Cyan
