@@ -40,6 +40,24 @@ claude-code-skript/
 
 ---
 
+## Schnellstart — Neues Gerät
+
+Ein einziger Befehl in PowerShell — der Rest läuft automatisch:
+
+```powershell
+irm https://raw.githubusercontent.com/stillday/claude-code-skript/master/install.ps1 | iex
+```
+
+Was passiert:
+1. Prüft ob Git installiert ist (Hinweis falls nicht)
+2. Fragt wohin das Setup-Kit installiert werden soll (Standard: `C:\tools\claude-code-skript`)
+3. Klont dieses Repo dorthin
+4. Startet `setup.ps1` automatisch — der Wizard übernimmt
+
+Wenn das Setup-Kit bereits vorhanden ist, bietet der Installer stattdessen ein `git pull` an.
+
+---
+
 ## Voraussetzungen
 
 - **Claude Code** installiert (`npm install -g @anthropic/claude-code` oder [claude.ai/claude-code](https://claude.ai/claude-code))
