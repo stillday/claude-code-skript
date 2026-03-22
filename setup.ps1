@@ -678,21 +678,50 @@ function Start-ProjectWizard {
 # MAIN
 # ============================================================
 
+# --- Hauptmenue: Was moechtest du tun? ---
 Write-Host ""
-Install-GlobalClaudeMd
+if (-not $GlobalOnly -and -not $ProjectPath -and -not $ProjectName) {
+    Write-Host "Was moechtest du tun?" -ForegroundColor White
+    Write-Host "  1) Neues Projekt anlegen" -ForegroundColor Gray
+    Write-Host "  2) Bestehendes Projekt erweitern / optimieren" -ForegroundColor Gray
+    Write-Host "  3) Nur globales Setup (CLAUDE.md + Settings)" -ForegroundColor Gray
+    $mainChoice = Read-Host "Auswahl [1]"
+} elseif ($GlobalOnly) {
+    $mainChoice = "3"
+} elseif ($ProjectPath -or $ProjectName) {
+    $mainChoice = "1"
+}
+
+# Globales Setup:
+# - Bei Auswahl 3 (GlobalOnly): immer fragen
+# - Bei Auswahl 1/2: still installieren falls noch nicht vorhanden, sonst ueberspringen
+if ($mainChoice -eq "3") {
+    Write-Host ""
+    Install-GlobalClaudeMd
+} else {
+    # Neues oder bestehendes Projekt: CLAUDE.md nur installieren wenn noch nicht vorhanden
+    $globalTarget = "$ClaudeDir\CLAUDE.md"
+    if (-not (Test-Path $globalTarget)) {
+        Write-Host ""
+        Install-GlobalClaudeMd
+    } else {
+        Write-Host "  ~/.claude/CLAUDE.md bereits vorhanden (unveraendert)." -ForegroundColor DarkGray
+    }
+}
+
 Write-Host ""
 Check-Settings
 
-if (-not $GlobalOnly) {
-    $runWizard = $false
-    if ($ProjectPath -or $ProjectName) {
-        $runWizard = $true
+if ($mainChoice -ne "3") {
+    if ($mainChoice -eq "2") {
+        # Bestehendes Projekt: Pfad abfragen und direkt in Update-Modus
+        if (-not $ProjectPath) {
+            $ProjectPath = Read-Host "`nPfad zum bestehenden Projekt"
+        }
+        Start-ProjectWizard -Name $ProjectName -Type $ProjectType -Path $ProjectPath `
+                            -Provider $GitProvider -Ver $Versioning
     } else {
-        Write-Host ""
-        $runWizard = Ask-YesNo "Projekt einrichten oder erweitern? (j/N)"
-    }
-
-    if ($runWizard) {
+        # Neues Projekt (Auswahl 1 oder Parameter)
         Start-ProjectWizard -Name $ProjectName -Type $ProjectType -Path $ProjectPath `
                             -Provider $GitProvider -Ver $Versioning
     }
