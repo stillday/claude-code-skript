@@ -613,10 +613,29 @@ npm-debug.log*
 function Start-ProjectWizard {
     param([string]$Name, [string]$Type, [string]$Path, [string]$Provider, [string]$Ver)
 
+    # Elternordner des Setup-Scripts (eine Ebene hoeher)
+    # z.B. Script liegt in C:\tools\claude-code-skript\ -> Vorschlag: C:\tools\mein-projekt
+    $ProjectsBase = Split-Path -Parent $ScriptDir
+
     # Pfad klaeren
     if (-not $Path) {
-        $Path = Read-Host "`nProjekt-Pfad (z.B. C:\coding\mein-projekt)"
+        Write-Host ""
+        Write-Host "  Projekte werden standardmaessig angelegt in: $ProjectsBase\" -ForegroundColor DarkGray
+        Write-Host "  Tipp: Nur den Ordnernamen eingeben (z.B. 'mein-projekt')" -ForegroundColor DarkGray
+        Write-Host "        Oder einen vollstaendigen Pfad (z.B. C:\coding\mein-projekt)" -ForegroundColor DarkGray
+        $PathInput = Read-Host "`nProjektname oder vollstaendiger Pfad"
+        if (-not $PathInput) { return }
+
+        # Relativen Namen in absoluten Pfad umwandeln
+        if ($PathInput -notmatch '^[A-Za-z]:\\') {
+            $Path = Join-Path $ProjectsBase $PathInput
+        } else {
+            $Path = $PathInput
+        }
+
+        Write-Host "  Zielordner: $Path" -ForegroundColor Cyan
     }
+
     if (-not (Test-Path $Path)) {
         if (Ask-YesNo "  Ordner '$Path' erstellen? (j/N)") {
             New-Item -ItemType Directory -Path $Path -Force | Out-Null
