@@ -610,30 +610,75 @@ npm-debug.log*
 # 5. PROJEKT-WIZARD EINSTIEG
 # ============================================================
 
+function Get-ProjectsBase {
+    # 1. Gespeicherten Pfad aus setup-kit.json laden
+    if (Test-Path $SetupConfigFile) {
+        $cfg = Get-Content $SetupConfigFile -Raw | ConvertFrom-Json
+        if ($cfg.projectsBase -and (Test-Path $cfg.projectsBase)) {
+            return $cfg.projectsBase
+        }
+    }
+
+    # 2. Bekannte Standard-Pfade pruefen (Reihenfolge: haeufigste zuerst)
+    $candidates = @(
+        "C:\coding",
+        "C:\projects",
+        "C:\dev",
+        "C:\work",
+        "$env:USERPROFILE\projects",
+        "$env:USERPROFILE\coding",
+        "$env:USERPROFILE\dev",
+        "$env:USERPROFILE\Documents\projects",
+        "D:\coding",
+        "D:\projects"
+    )
+    foreach ($c in $candidates) {
+        if (Test-Path $c) { return $c }
+    }
+
+    # 3. Fallback: Elternordner des Setup-Scripts
+    return (Split-Path -Parent $ScriptDir)
+}
+
+function Save-ProjectsBase {
+    param([string]$BasePath)
+    if (-not (Test-Path $SetupConfigFile)) { return }
+    $cfg = Get-Content $SetupConfigFile -Raw | ConvertFrom-Json
+    $cfg | Add-Member -NotePropertyName "projectsBase" -NotePropertyValue $BasePath -Force
+    $cfg | ConvertTo-Json | Set-Content $SetupConfigFile -Encoding UTF8
+}
+
 function Start-ProjectWizard {
     param([string]$Name, [string]$Type, [string]$Path, [string]$Provider, [string]$Ver)
 
-    # Elternordner des Setup-Scripts (eine Ebene hoeher)
-    # z.B. Script liegt in C:\tools\claude-code-skript\ -> Vorschlag: C:\tools\mein-projekt
-    $ProjectsBase = Split-Path -Parent $ScriptDir
+    # Projekts-Basisordner ermitteln
+    $ProjectsBase = Get-ProjectsBase
 
     # Pfad klaeren
     if (-not $Path) {
         Write-Host ""
-        Write-Host "  Projekte werden standardmaessig angelegt in: $ProjectsBase\" -ForegroundColor DarkGray
-        Write-Host "  Tipp: Nur den Ordnernamen eingeben (z.B. 'mein-projekt')" -ForegroundColor DarkGray
-        Write-Host "        Oder einen vollstaendigen Pfad (z.B. C:\coding\mein-projekt)" -ForegroundColor DarkGray
+        Write-Host "  Standard-Projektordner: $ProjectsBase" -ForegroundColor DarkGray
+        Write-Host "  Tipp: Nur den Namen eingeben (z.B. 'mein-projekt') -> landet in $ProjectsBase\" -ForegroundColor DarkGray
+        Write-Host "        Oder vollstaendiger Pfad (z.B. D:\work\mein-projekt)" -ForegroundColor DarkGray
         $PathInput = Read-Host "`nProjektname oder vollstaendiger Pfad"
         if (-not $PathInput) { return }
 
         # Relativen Namen in absoluten Pfad umwandeln
-        if ($PathInput -notmatch '^[A-Za-z]:\\') {
+        if ($PathInput -notmatch '^[A-Za-z]:[\\\/]') {
             $Path = Join-Path $ProjectsBase $PathInput
         } else {
             $Path = $PathInput
         }
 
         Write-Host "  Zielordner: $Path" -ForegroundColor Cyan
+
+        # Wenn Basisordner neu war, fuer kuenftige Aufrufe speichern
+        $detectedBase = Split-Path -Parent $Path
+        if ($detectedBase -ne $ProjectsBase) {
+            Save-ProjectsBase -BasePath $detectedBase
+        } elseif (-not ((Get-Content $SetupConfigFile -Raw | ConvertFrom-Json).projectsBase)) {
+            Save-ProjectsBase -BasePath $ProjectsBase
+        }
     }
 
     if (-not (Test-Path $Path)) {
