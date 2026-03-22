@@ -5,6 +5,15 @@
 
 ---
 
+## Setup-Kit Update-Check (automatisch bei Session-Start)
+
+Prüfe beim Start jeder Session einmalig ob die Datei `~/.claude/update-notification.txt` existiert.
+
+- **Wenn vorhanden:** Zeige dem User kurz: `💡 Setup-Kit Update verfügbar — ausführen: .\setup.ps1 -CheckUpdates` und lösche die Datei danach (`Remove-Item ~/.claude/update-notification.txt`)
+- **Wenn nicht vorhanden:** Nichts tun, nicht erwähnen
+
+---
+
 ## Identität & Kontext
 
 - **Name:** Jan

@@ -698,6 +698,27 @@ if (-not $GlobalOnly) {
     }
 }
 
+# --- Auto-Update-Check einrichten ---
+function Setup-AutoUpdate {
+    $scheduleScript = "$ScriptDir\schedule-updates.ps1"
+    $checkScript    = "$ScriptDir\check-updates-auto.ps1"
+
+    if (-not (Test-Path $scheduleScript) -or -not (Test-Path $checkScript)) { return }
+
+    $taskExists = Get-ScheduledTask -TaskName "ClaudeCodeSetupKitUpdateCheck" -ErrorAction SilentlyContinue
+    if ($taskExists) {
+        Write-Host "  Auto-Update-Check bereits aktiv (alle 2 Tage)." -ForegroundColor DarkGray
+        return
+    }
+
+    Write-Host ""
+    if (Ask-YesNo "Automatischen Update-Check einrichten? (alle 2 Tage still im Hintergrund) (j/N)") {
+        & $scheduleScript -InstallDir $ScriptDir
+    }
+}
+
+Setup-AutoUpdate
+
 Write-Host ""
 Show-SkillsInfo
 
