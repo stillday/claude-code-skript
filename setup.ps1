@@ -178,7 +178,7 @@ if ($sourceUrl) {
     Save-SetupConfig -RepoUrl $sourceUrl
     Write-Host "  Update-Quelle: $sourceUrl" -ForegroundColor DarkGray
 } else {
-    Write-Host "  Kein Git-Remote gefunden — Auto-Updates nicht moeglich." -ForegroundColor DarkGray
+    Write-Host "  Kein Git-Remote gefunden - Auto-Updates nicht moeglich." -ForegroundColor DarkGray
 }
 Show-UpdateHint
 
@@ -272,7 +272,7 @@ function Install-NewProject {
     $wantDba   = Ask-YesNo "  DBA-Agent?   (komplexes Datenbankschema) (j/N)"
     $wantPerf  = Ask-YesNo "  PERF-Agent?  (performance-kritische App) (j/N)"
 
-    Write-Host "`n--- Erstelle Projekt: $Name ($Type | $Provider | $Ver) ---" -ForegroundColor Cyan
+    Write-Host "`n--- Erstelle Projekt: $Name [$Type, $Provider, $Ver] ---" -ForegroundColor Cyan
 
     # CLAUDE.md
     $tmpl   = if ($Type -eq "sveltekit") { "sveltekit-CLAUDE.md" } else { "generic-CLAUDE.md" }
@@ -331,7 +331,7 @@ function Install-NewProject {
     # .gitignore
     Install-Gitignore -Path $Path
 
-    # Git initialisieren (frisches Repo — NICHT das Setup-Script-Repo)
+    # Git initialisieren (frisches Repo - NICHT das Setup-Script-Repo)
     $initVersion = Get-Content $vFile -Raw
     Write-Host "`n  Initialisiere frisches Git-Repo..." -ForegroundColor White
     git -C $Path init -b main 2>&1 | Out-Null
@@ -534,14 +534,14 @@ function Install-CiCd {
         Write-Host "  [OK] GitHub Actions: .github/workflows/bump-version.yml" -ForegroundColor Green
         Write-Host ""
         Write-Host "  === GitHub Personal Access Token (Classic) ===" -ForegroundColor Yellow
-        Write-Host "  1. github.com → Profil → Settings → Developer settings → Personal access tokens → Tokens (classic)" -ForegroundColor White
+        Write-Host "  1. github.com > Profil > Settings > Developer settings > Personal access tokens > Tokens (classic)" -ForegroundColor White
         Write-Host "  2. 'Generate new token (classic)' klicken" -ForegroundColor White
         Write-Host "  3. Rechte aktivieren:" -ForegroundColor White
         Write-Host "     [x] repo           (alle Sub-Checkboxen)" -ForegroundColor White
         Write-Host "     [x] workflow        (GitHub Actions)" -ForegroundColor White
         Write-Host "     [x] write:packages  (optional, fuer Packages)" -ForegroundColor White
         Write-Host "  4. Token kopieren (wird nur einmal gezeigt!)" -ForegroundColor White
-        Write-Host "  5. Repo → Settings → Secrets and variables → Actions → New secret" -ForegroundColor White
+        Write-Host "  5. Repo > Settings > Secrets and variables > Actions > New secret" -ForegroundColor White
         Write-Host "     Name: GH_PAT   |   Value: <dein token>" -ForegroundColor White
         Write-Host ""
         Write-Host "  Damit kann Claude Code: Repos erstellen, CI/CD konfigurieren," -ForegroundColor DarkGray
@@ -560,14 +560,14 @@ function Install-CiCd {
         Write-Host "  [OK] GitLab CI: .gitlab-ci.yml" -ForegroundColor Green
         Write-Host ""
         Write-Host "  === GitLab Personal Access Token ===" -ForegroundColor Yellow
-        Write-Host "  1. GitLab → Profil (oben rechts) → Edit profile → Access Tokens" -ForegroundColor White
+        Write-Host "  1. GitLab > Profil (oben rechts) > Edit profile > Access Tokens" -ForegroundColor White
         Write-Host "  2. 'Add new token' klicken" -ForegroundColor White
         Write-Host "  3. Rechte aktivieren:" -ForegroundColor White
         Write-Host "     [x] api              (vollstaendiger API-Zugriff)" -ForegroundColor White
         Write-Host "     [x] read_repository  (Repo lesen)" -ForegroundColor White
         Write-Host "     [x] write_repository (Commits pushen)" -ForegroundColor White
         Write-Host "  4. Token kopieren" -ForegroundColor White
-        Write-Host "  5. Repo → Settings → CI/CD → Variables → Add variable" -ForegroundColor White
+        Write-Host "  5. Repo > Settings > CI/CD > Variables > Add variable" -ForegroundColor White
         Write-Host "     Key: CI_BUMP_TOKEN   |   Value: <dein token>   |   [x] Masked" -ForegroundColor White
         Write-Host ""
         Write-Host "  Damit kann Claude Code: Commits pushen, Tags setzen, Pipelines ausfuehren." -ForegroundColor DarkGray
@@ -578,7 +578,7 @@ function Install-Gitignore {
     param([string]$Path)
     if (Test-Path "$Path\.gitignore") { return }
     @"
-# Environment — niemals einchecken!
+# Environment - niemals einchecken!
 .env
 .env.local
 .env.*.local
@@ -612,7 +612,7 @@ npm-debug.log*
 function Start-ProjectWizard {
     param([string]$Name, [string]$Type, [string]$Path, [string]$Provider, [string]$Ver)
 
-    # Pfad klären
+    # Pfad klaeren
     if (-not $Path) {
         $Path = Read-Host "`nProjekt-Pfad (z.B. C:\coding\mein-projekt)"
     }
@@ -631,7 +631,7 @@ function Start-ProjectWizard {
     $isExisting = Test-Path "$Path\.git"
 
     if ($isExisting) {
-        Write-Host "`n  Git-Repo vorhanden — Modus: Bestehendes Projekt erweitern" -ForegroundColor Cyan
+        Write-Host "`n  Git-Repo vorhanden - Modus: Bestehendes Projekt erweitern" -ForegroundColor Cyan
         # Typ erkennen oder fragen
         if (-not $Type) {
             $hasSvelte = (Test-Path "$Path\svelte.config.*") -or (Test-Path "$Path\src\app.html")
@@ -640,7 +640,7 @@ function Start-ProjectWizard {
         }
         Update-ExistingProject -Path $Path -Name $Name -Type $Type -Provider $Provider -Ver $Ver
     } else {
-        Write-Host "`n  Kein Git-Repo — Modus: Neues Projekt erstellen" -ForegroundColor Cyan
+        Write-Host "`n  Kein Git-Repo - Modus: Neues Projekt erstellen" -ForegroundColor Cyan
 
         # Alle Wizard-Fragen fuer neues Projekt
         if (-not $Type) {
@@ -658,8 +658,8 @@ function Start-ProjectWizard {
         }
         if (-not $Ver) {
             Write-Host "`nVersionierung:" -ForegroundColor White
-            Write-Host "  1) calver   (2026.0321.1847 — Datum + Counter, vollautomatisch)" -ForegroundColor Gray
-            Write-Host "  2) semver   (1.2.3 — Major.Minor.Patch, manuell)" -ForegroundColor Gray
+            Write-Host "  1) calver   (2026.0321.1847 - Datum + Counter, vollautomatisch)" -ForegroundColor Gray
+            Write-Host "  2) semver   (1.2.3 - Major.Minor.Patch, manuell)" -ForegroundColor Gray
             $v = Ask-User "Auswahl" "1"
             $Ver = if ($v -eq "2") { "semver" } else { "calver" }
         }
@@ -670,7 +670,7 @@ function Start-ProjectWizard {
     Write-Host "`n=== Projekt '$Name' eingerichtet ===" -ForegroundColor Cyan
     Write-Host "  cd '$Path'" -ForegroundColor White
     Write-Host "  claude" -ForegroundColor White
-    Write-Host "  → Im Chat: /discover" -ForegroundColor White
+    Write-Host "  > Im Chat: /discover" -ForegroundColor White
     Write-Host ""
 }
 
@@ -711,7 +711,7 @@ function Setup-McpMarket {
     }
 
     Write-Host ""
-    Write-Host "  MCPmarket.com — MCP-Server per Sprache suchen und installieren" -ForegroundColor White
+    Write-Host "  MCPmarket.com - MCP-Server per Sprache suchen und installieren" -ForegroundColor White
     Write-Host "  Kein API-Key noetig. Einmal einrichten, dauerhaft nutzen." -ForegroundColor DarkGray
     if (Ask-YesNo "  MCPmarket MCP einrichten? (j/N)") {
         claude mcp add mcpmarket --scope user -- npx -y @mcpmarket/mcp-auto-install connect 2>&1 | Out-Null
@@ -747,11 +747,11 @@ Write-Host ""
 Show-SkillsInfo
 
 Write-Host "`n=== Setup abgeschlossen ===" -ForegroundColor Cyan
-Write-Host "  ~/.claude/CLAUDE.md      — Globale Regeln (User: $UserName)" -ForegroundColor White
-Write-Host "  ~/.claude/settings.json  — MCPs + Hooks (Platzhalter setzen!)" -ForegroundColor White
+Write-Host "  ~/.claude/CLAUDE.md      - Globale Regeln (User: $UserName)" -ForegroundColor White
+Write-Host "  ~/.claude/settings.json  - MCPs + Hooks (Platzhalter setzen!)" -ForegroundColor White
 if (Test-Path $SetupConfigFile) {
     $cfg = Get-Content $SetupConfigFile -Raw | ConvertFrom-Json
-    Write-Host "  ~/.claude/setup-kit.json — Update-Tracking" -ForegroundColor White
+    Write-Host "  ~/.claude/setup-kit.json - Update-Tracking" -ForegroundColor White
     Write-Host "  Updates pruefen: .\setup.ps1 -CheckUpdates" -ForegroundColor DarkGray
 }
 Write-Host ""
