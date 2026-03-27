@@ -6,7 +6,9 @@
   "contextStopThreshold": 15,
   "askBeforeStop": true,
 
-  "_weekly_budget": "Wöchentliches Budget in USD. 0 = kein Limit. SessionStart-Hook zeigt Erinnerung.",
-  "weeklyBudgetUSD": 0,
-  "weeklyBudgetWarnPercent": 80
+  "_subscription": "Claude-Abo-Typ: 'pro' | 'max' | 'max5x' | 'api'. Beeinflusst Usage-Limit-Handling.",
+  "subscriptionPlan": "max",
+
+  "_usage_limit": "Was passiert wenn das Abo-Usage-Limit erreicht wird: 'pause' = STATE.md sichern + warten | 'warn' = nur warnen",
+  "onUsageLimitHit": "pause"
 }

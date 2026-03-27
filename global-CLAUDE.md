@@ -220,8 +220,10 @@ Vor jeder neuen Implementierung: `docs/failed-approaches.md` prüfen.
 
 ### Context Budget & Anti-Loop (für alle Agents)
 
-**Context Budget:** Bei <= 35% verbleibendem Kontext → STATE.md sichern, stoppen, User informieren.
-Nie bei niedrigem Budget eine neue Wave oder Task-Gruppe starten.
+**Abo-Nutzung (Jan verwendet Claude Max):** Bei Usage-Limit-Hit sofort STATE.md sichern und Jan informieren. Reset erfolgt ~alle 5h — danach mit `/resume-phase [feature]` fortsetzen. Kein USD-Budget-Tracking nötig.
+
+**Context Budget:** Bei <= 35% verbleibendem Kontext → State sichern, Jan fragen ob weitermachen oder pausieren. Bei <= 15% immer sofort stoppen.
+Schwellenwerte konfigurierbar in `.planning/config.json` (`contextWarnThreshold`, `contextStopThreshold`).
 
 **Anti-Loop Regeln:**
 - Max 5 aufeinanderfolgende Read-Operationen ohne Write → stoppen, eskalieren

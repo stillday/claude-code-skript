@@ -982,6 +982,48 @@ Regel: **Nie bei < `contextStopThreshold`% eine neue Wave starten** — erst Sta
 
 ---
 
+## USAGE LIMIT HANDLING (Abo-Nutzer)
+
+Bei einem Claude-Abo (Pro/Max) gibt es ein periodisches Usage-Limit.
+Wenn das Limit mid-execution erreicht wird, muss der PM sofort reagieren.
+
+### Erkennung
+
+Ein Usage-Limit-Hit ist erkennbar wenn:
+- Claude Code eine "Usage limit reached" Meldung zeigt
+- Responses plötzlich abbrechen ohne klaren Grund
+- Der Nutzer meldet dass er auf das Limit gestoßen ist
+
+### Reaktion bei Usage-Limit-Hit (onUsageLimitHit: "pause")
+
+**Sofort:**
+1. STATE.md updaten — aktuellen Stand genau festhalten
+2. Alle laufenden Sub-Agent-Tasks als "unterbrochen" markieren
+3. [USER] informieren:
+
+```
+"Usage-Limit erreicht — Ausführung pausiert.
+
+Stand gesichert: .planning/STATE-[feature].md
+Aktiver Stand: Wave [N], Task [X] war in Arbeit
+
+Wenn das Limit zurückgesetzt hat:
+→ /resume-phase [feature]  (setzt ab letzter fertiger Wave fort)
+
+Wann resettet das Limit?
+  Pro:   ~5 Stunden nach erstem Request dieser Periode
+  Max:   ~5 Stunden (höheres Limit, gleicher Reset-Zyklus)
+  Max5x: ~5 Stunden (5x höheres Limit)
+
+Das Reset-Datum/Zeit findest du unter: claude.ai/settings"
+```
+
+### Reaktion bei Usage-Limit-Hit (onUsageLimitHit: "warn")
+
+Nur warnen, nicht stoppen — [USER] entscheidet selbst ob er wartet oder weitermacht.
+
+---
+
 ## ANTI-LOOP REGELN (für Sub-Agents)
 
 Jeden Sub-Agent Task-Brief mit diesen Regeln ausstatten:

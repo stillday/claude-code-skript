@@ -83,11 +83,11 @@
   "hooks": {
     "SessionStart": [
       {
-        "_comment": "Wochenlimit-Erinnerung bei Session-Start (nur wenn weeklyBudgetUSD > 0 in .planning/config.json)",
+        "_comment": "Abo-Usage-Erinnerung bei Session-Start (liest subscriptionPlan aus .planning/config.json)",
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"try{const c=require('./.planning/config.json');if(c.weeklyBudgetUSD>0){console.log('\\n[Budget] Wochenbudget: $'+c.weeklyBudgetUSD+' USD konfiguriert.');console.log('[Budget] Aktuellen Verbrauch prüfen: /cost (in Claude Code)');console.log('[Budget] Oder: claude.ai/settings/billing');}}catch(e){}\" 2>/dev/null || true"
+            "command": "node -e \"try{const c=require('./.planning/config.json');const p=c.subscriptionPlan||'';if(p&&p!=='api'){console.log('[Abo: '+p.toUpperCase()+'] Usage-Limit pruefen: claude.ai/settings | Reset ~alle 5h');}}catch(e){}\" 2>/dev/null || true"
           }
         ]
       }
