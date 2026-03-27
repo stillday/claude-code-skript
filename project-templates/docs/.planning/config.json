@@ -1,0 +1,12 @@
+{
+  "_comment": "PM-Agent Konfiguration. Werte hier überschreiben die Agent-Defaults.",
+
+  "_context_budget": "Wie viel Kontext verbleibend (%) bevor gewarnt/gestoppt wird",
+  "contextWarnThreshold": 35,
+  "contextStopThreshold": 15,
+  "askBeforeStop": true,
+
+  "_weekly_budget": "Wöchentliches Budget in USD. 0 = kein Limit. SessionStart-Hook zeigt Erinnerung.",
+  "weeklyBudgetUSD": 0,
+  "weeklyBudgetWarnPercent": 80
+}

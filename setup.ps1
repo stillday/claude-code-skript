@@ -324,6 +324,7 @@ function Install-NewProject {
     New-Item -ItemType Directory -Path "$Path\docs\planning-history" -Force | Out-Null
     Copy-Item "$TemplateDir\docs\.planning\PLAN-template.md"  "$Path\.planning\PLAN-template.md"  -Force
     Copy-Item "$TemplateDir\docs\.planning\STATE-template.md" "$Path\.planning\STATE-template.md" -Force
+    Copy-Item "$TemplateDir\docs\.planning\config.json"       "$Path\.planning\config.json"       -Force
     # .planning/ in .gitignore eintragen wenn noch nicht vorhanden
     $gitignorePath = "$Path\.gitignore"
     if (Test-Path $gitignorePath) {

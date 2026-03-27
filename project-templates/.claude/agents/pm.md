@@ -940,15 +940,45 @@ State nach jedem abgeschlossenen Task aktualisieren.
 
 ## CONTEXT BUDGET MONITORING
 
-Bei **<= 35% verbleibendem Kontext** sofort STATE.md updaten und [USER] informieren:
+### Schwellenwerte
+
+Lies beim Start die Konfiguration:
+```bash
+cat .planning/config.json 2>/dev/null || echo "keine config, verwende Defaults"
+```
+
+| Parameter | Default | Bedeutung |
+|-----------|---------|-----------|
+| `contextWarnThreshold` | 35% | Warnung anzeigen + fragen |
+| `contextStopThreshold` | 15% | Hard Stop unabhängig von askBeforeStop |
+| `askBeforeStop` | true | Ob vor Stopp gefragt wird |
+
+### Verhalten bei niedrigem Kontext
+
+**Bei `contextWarnThreshold`% (default 35%)** — fragen:
 
 ```
-"Kontext-Budget fast aufgebraucht (~35% verbleibend).
+"Kontext-Budget bei ~35% verbleibend.
+
+Optionen:
+  (W) Weitermachen — ich reduziere Detail-Level und halte Antworten kurz
+  (P) Pausieren   — STATE.md sichern, neue Session mit /resume-phase [feature]
+
+Was soll ich tun? (W/P)"
+```
+
+Bei Wahl **(W)**: kürzer antworten, keine langen Erklärungen, keine großen Code-Blöcke am Stück.
+Bei Wahl **(P)**: STATE.md updaten, stoppen.
+
+**Bei `contextStopThreshold`% (default 15%)** — immer stoppen (kein Ask):
+
+```
+"Kontext-Budget kritisch (~15% verbleibend) — stoppe jetzt.
 State gesichert: .planning/STATE-[feature].md
-Nächste Session: /resume-phase [feature] zum Fortsetzen."
+Nächste Session: /resume-phase [feature]"
 ```
 
-Regel: **Nie bei niedrigem Budget eine neue Wave starten** — erst State sichern, dann stoppen.
+Regel: **Nie bei < `contextStopThreshold`% eine neue Wave starten** — erst State sichern.
 
 ---
 

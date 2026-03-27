@@ -81,13 +81,24 @@
   },
 
   "hooks": {
+    "SessionStart": [
+      {
+        "_comment": "Wochenlimit-Erinnerung bei Session-Start (nur wenn weeklyBudgetUSD > 0 in .planning/config.json)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"try{const c=require('./.planning/config.json');if(c.weeklyBudgetUSD>0){console.log('\\n[Budget] Wochenbudget: $'+c.weeklyBudgetUSD+' USD konfiguriert.');console.log('[Budget] Aktuellen Verbrauch prüfen: /cost (in Claude Code)');console.log('[Budget] Oder: claude.ai/settings/billing');}}catch(e){}\" 2>/dev/null || true"
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "_comment": "Checkliste nach jeder Session anzeigen",
         "hooks": [
           {
             "type": "command",
-            "command": "echo \"\n=== SESSION CHECKLIST ===\n[ ] Tests geschrieben fuer neue Funktionen?\n[ ] Commit-Groesse <= 300 Zeilen?\n[ ] Keine Secrets im Code?\n[ ] Branch korrekt benannt?\n=========================\""
+            "command": "echo \"\n=== SESSION CHECKLIST ===\n[ ] Tests geschrieben fuer neue Funktionen?\n[ ] Commit-Groesse <= 300 Zeilen?\n[ ] Keine Secrets im Code?\n[ ] Branch korrekt benannt?\n[ ] /cost pruefen wenn viel gearbeitet wurde\n=========================\""
           }
         ]
       }
