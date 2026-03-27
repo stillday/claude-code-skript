@@ -564,6 +564,19 @@ PM → hotfix/[name] von main
   - Aus beliebigem Verzeichnis ausfuehrbar (ScriptDir-relativ)
 - [x] GitHub Repo eingerichtet: https://github.com/stillday/claude-code-skript.git ✓
 
+## ERLEDIGTE PUNKTE (Update 2026-03-27 — GSD-Integration)
+
+- [x] GSD-Konzepte analysiert und adaptiert (get-shit-done, 43k Stars) ✓
+- [x] PM-Agent: formale Planungsphase mit Wave-Modell (PLAN.md mit XML-Tasks) ✓
+- [x] PM-Agent: Context Budget Monitoring (Stopp bei <= 35%) ✓
+- [x] PM-Agent: Anti-Loop Regeln in Sub-Agent Task-Briefs ✓
+- [x] PM-Agent: Deviation-Handling (was Agents auto-fixen dürfen) ✓
+- [x] PM-Agent: neue Commands /plan-phase, /execute-phase, /resume-phase, /verify-work, /ship ✓
+- [x] PM-Agent: STATE.md für Resumability nach Kontext-Verlust ✓
+- [x] Templates: PLAN-template.md + STATE-template.md in project-templates/docs/.planning/ ✓
+- [x] global-CLAUDE.md: Context Budget + Anti-Loop + formale Planung dokumentiert ✓
+- [x] setup.ps1: .planning/ Ordner-Erstellung bei neuem Projekt ✓
+
 ## OFFENE PUNKTE (noch zu erledigen)
 
 - [ ] GitLab MCP testen/konfigurieren (Self-Hosted URL-Support)

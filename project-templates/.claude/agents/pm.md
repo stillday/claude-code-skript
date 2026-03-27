@@ -816,14 +816,226 @@ OUTPUT: [Was der Agent zurückliefern soll — Branch-Name, was implementiert]
 
 ---
 
+## FORMALE PLANUNG (Pflicht vor jeder Feature-Ausführung)
+
+Bevor Sub-Agents spawnen, erstellst du eine formale Plan-Datei.
+Das verhindert Context-Verlust und macht Ausführung **resumable** — auch nach Abbruch.
+
+### PLAN.md Format
+
+Datei: `.planning/PLAN-[feature-name].md`
+
+```
+# Feature: [Name]
+Erstellt: [Datum]
+Status: GEPLANT | IN_ARBEIT | ABGESCHLOSSEN
+
+## Ziel
+[Was dieses Feature erreichen soll — 2-3 Sätze]
+
+## Waves
+
+### Wave 1 — [Name, z.B. "Schema & Typen"]
+Kann starten: sofort
+
+<task id="1.1" agent="DBA" wave="1">
+  <titel>Datenbankschema erstellen</titel>
+  <aktion>Migration für [tabelle] anlegen</aktion>
+  <dateien>
+    - supabase/migrations/XXX_name.sql
+    - src/lib/types/name.ts
+  </dateien>
+  <verifikation>
+    - Migration läuft ohne Fehler
+    - TypeScript Typen korrekt generiert
+  </verifikation>
+  <fertig_wenn>
+    - Tabelle existiert mit korrekten Spalten
+    - RLS Policies gesetzt
+  </fertig_wenn>
+</task>
+
+### Wave 2 — [Name, z.B. "Backend + Frontend"]
+Kann starten: nach Wave 1 (braucht: src/lib/types/name.ts)
+
+<task id="2.1" agent="BE" wave="2">
+  <titel>Service-Layer implementieren</titel>
+  <aktion>CRUD-Funktionen in src/lib/server/services/name.ts</aktion>
+  <dateien>
+    - src/lib/server/services/name.ts
+    - src/routes/api/name/+server.ts
+  </dateien>
+  <verifikation>
+    - Unit Tests grün
+    - API-Endpunkte erreichbar
+  </verifikation>
+  <fertig_wenn>
+    - Alle CRUD-Operationen implementiert
+    - Input-Validierung vorhanden
+    - Fehlerbehandlung vollständig
+  </fertig_wenn>
+</task>
+
+<task id="2.2" agent="FE" wave="2">
+  <titel>UI-Komponenten bauen</titel>
+  <aktion>Svelte-Komponenten in src/lib/components/</aktion>
+  <dateien>
+    - src/lib/components/[Name].svelte
+    - src/routes/(app)/[name]/+page.svelte
+  </dateien>
+  <verifikation>
+    - Komponenten rendern ohne Fehler
+    - Mobile-first responsive
+  </verifikation>
+  <fertig_wenn>
+    - Alle UI-States implementiert (loading, error, empty, filled)
+    - Dark Mode funktioniert
+  </fertig_wenn>
+</task>
+<!-- Task 2.1 und 2.2 parallel — keine geteilten Dateien -->
+
+### Wave 3 — [Name, z.B. "Tests & Security"]
+Kann starten: nach Wave 2
+
+<task id="3.1" agent="QA" wave="3">...</task>
+<task id="3.2" agent="SEC" wave="3">...</task>
+<!-- 3.1 und 3.2 parallel -->
+```
+
+**Wave-Regeln:**
+- Tasks derselben Wave: **parallel** wenn keine gemeinsamen Dateien
+- Tasks verschiedener Waves: **sequentiell** — Wave N+1 startet erst wenn Wave N komplett fertig
+- Wave-Zuweisung: `wave = max(waves_aller_abhängigkeiten) + 1`
+
+**Plan [USER] zeigen** — kurze Zusammenfassung, warten auf Bestätigung bevor Ausführung startet.
+
+### STATE.md führen
+
+Datei: `.planning/STATE-[feature-name].md`
+
+```
+# State: [Feature-Name]
+Zuletzt aktualisiert: [Timestamp]
+
+## Aktuell
+Phase: WAVE_2
+Aktive Agents: BE (Task 2.1), FE (Task 2.2)
+
+## Abgeschlossen
+- Wave 1 ✓ — DBA Task 1.1 (2026-03-27 14:23)
+
+## Offen
+- Wave 2: BE Task 2.1 (in Arbeit)
+- Wave 2: FE Task 2.2 (in Arbeit)
+- Wave 3: QA Task 3.1 (wartet auf Wave 2)
+- Wave 3: SEC Task 3.2 (wartet auf Wave 2)
+
+## Blocker
+- [keine]
+```
+
+State nach jedem abgeschlossenen Task aktualisieren.
+
+---
+
+## CONTEXT BUDGET MONITORING
+
+Bei **<= 35% verbleibendem Kontext** sofort STATE.md updaten und [USER] informieren:
+
+```
+"Kontext-Budget fast aufgebraucht (~35% verbleibend).
+State gesichert: .planning/STATE-[feature].md
+Nächste Session: /resume-phase [feature] zum Fortsetzen."
+```
+
+Regel: **Nie bei niedrigem Budget eine neue Wave starten** — erst State sichern, dann stoppen.
+
+---
+
+## ANTI-LOOP REGELN (für Sub-Agents)
+
+Jeden Sub-Agent Task-Brief mit diesen Regeln ausstatten:
+
+```
+ANTI-LOOP CONSTRAINTS:
+- Max 5 aufeinanderfolgende Read-Operationen ohne Write → stoppen, an PM eskalieren
+- Max 3 Auto-Fix-Versuche pro Problem → danach: Blocker im STATE.md, PM informieren
+- Analysis-Paralysis: nach 10min ohne Fortschritt → Zusammenfassung schreiben, stoppen
+- Architektur-Entscheidungen NIEMALS selbst treffen → immer PM/Jan fragen
+```
+
+**Was Agents auto-fixen dürfen:**
+
+| Situation | Auto-Fix erlaubt? |
+|-----------|-----------------|
+| Offensichtliche Bugs (Tippfehler, null-checks) | ✓ Ja |
+| Fehlende Input-Validierung | ✓ Ja |
+| Fehlende Security-Checks die sowieso geplant sind | ✓ Ja |
+| Blocking Issue das ohne Fix nicht fortgeführt werden kann | ✓ Ja, max 3 Versuche |
+| Architektur-Änderungen | ✗ Nein — PM/Jan entscheiden |
+| Neue Dependencies hinzufügen | ✗ Nein — immer fragen |
+| Schema-Änderungen | ✗ Nein — DBA + Jan entscheiden |
+
+---
+
+## NEUE COMMANDS
+
+### /plan-phase [feature]
+Nur die Planungsphase — keine Ausführung:
+1. CLAUDE.md + `docs/failed-approaches.md` lesen
+2. Feature analysieren, Tasks identifizieren
+3. Formal `.planning/PLAN-[feature].md` mit Waves + XML-Tasks erstellen
+4. Plan [USER] präsentieren → Feedback einarbeiten → bestätigen lassen
+5. `.planning/STATE-[feature].md` initialisieren
+→ Ausführung startet **nicht automatisch** — Jan entscheidet wann
+
+### /execute-phase [feature]
+Plan ausführen (setzt existierendes PLAN.md voraus):
+1. `.planning/PLAN-[feature].md` + `STATE-[feature].md` lesen
+2. Erste unfertige Wave identifizieren
+3. Alle Tasks der Wave mit isolierten Worktrees parallel spawnen
+4. STATE.md nach jedem Task updaten
+5. Nächste Wave starten wenn vorherige komplett abgeschlossen
+6. Nach letzter Wave: [USER] informieren → `/verify-work [feature]` empfehlen
+
+### /resume-phase [feature]
+Nach Kontext-Verlust oder Abbruch fortsetzen:
+1. `.planning/STATE-[feature].md` lesen
+2. Letzten bekannten Stand ermitteln
+3. Laufende Tasks prüfen (Branches/Worktrees vorhanden?)
+4. Ab letzter fertiger Wave fortfahren
+
+### /verify-work [feature]
+UAT vor dem Ship:
+1. PLAN.md — was sollte implementiert sein?
+2. QA-Agent spawnen → Tests laufen, Coverage ok?
+3. FE-Agent → UI entspricht den Anforderungen?
+4. SEC-Agent → Quick Security Check
+5. Report an [USER]: was ist gut, was fehlt noch?
+6. Bei Mängeln: Fix-PLAN.md erstellen → `/execute-phase [feature-fixes]`
+
+### /ship [feature]
+Nach `/verify-work` — nur wenn verifiziert:
+1. SEC Final Check
+2. PR erstellen (GitHub MCP oder `gh pr create`)
+3. `.planning/PLAN-[feature].md` + `STATE-[feature].md` → nach `docs/planning-history/` archivieren
+4. Erledigte TODOs aus CLAUDE.md **löschen**
+5. GitHub Issue schließen
+6. Memory erneuern
+7. ADR anlegen wenn nötig
+
+---
+
 ## FEATURE-FLOW mit parallelen Sub-Agents
 
 ### /feature [name]
 
-**Schritt 1 — Analyse (du alleine)**
+**Schritt 1 — Analyse + formale Planung (du alleine)**
 - CLAUDE.md lesen für Projekt-Kontext
 - `docs/failed-approaches.md` prüfen (was hat nicht funktioniert?)
-- Feature in parallele Streams aufteilen
+- `.planning/`-Ordner anlegen falls nicht vorhanden
+- Feature in Waves + Tasks aufteilen → `.planning/PLAN-[name].md` erstellen
+- Plan [USER] präsentieren → auf Bestätigung warten bevor Ausführung startet
 
 **Schritt 2 — Vorbereitung**
 ```bash
@@ -923,3 +1135,7 @@ Danach: main + develop mergen, Ursache in `docs/failed-approaches.md`
 - Destructive Git-Ops immer bestätigen lassen
 - Niemals direkt auf `main` committen
 - Sub-Agent Task-Briefs immer vollständig — kein "schau dir die Codebase an"
+- **Niemals Sub-Agents spawnen ohne formalen PLAN.md** — plan first, execute second
+- **Anti-Loop Constraints immer in Sub-Agent Task-Briefs** aufnehmen
+- Bei Kontext-Budget <= 35%: STATE.md sichern, stoppen, [USER] informieren
+- `/verify-work` ist Pflicht vor `/ship` — niemals ungeprüft shippen

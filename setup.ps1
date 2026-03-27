@@ -318,7 +318,21 @@ function Install-NewProject {
     Copy-Item "$TemplateDir\docs\project-brief.md"     "$Path\docs\project-brief.md"     -Force
     Replace-Placeholders "$Path\docs\project-brief.md" -Name $UserName -ProjName $Name
     if ($Context.Count -gt 0) { Fill-ProjectBrief -FilePath "$Path\docs\project-brief.md" -Ctx $Context }
-    Write-Host "  [OK] Docs: docs/adr/, failed-approaches.md, project-brief.md" -ForegroundColor Green
+
+    # Planning (GSD-Modell: Wave-basierte Ausfuehrung, resumable State)
+    New-Item -ItemType Directory -Path "$Path\.planning" -Force | Out-Null
+    New-Item -ItemType Directory -Path "$Path\docs\planning-history" -Force | Out-Null
+    Copy-Item "$TemplateDir\docs\.planning\PLAN-template.md"  "$Path\.planning\PLAN-template.md"  -Force
+    Copy-Item "$TemplateDir\docs\.planning\STATE-template.md" "$Path\.planning\STATE-template.md" -Force
+    # .planning/ in .gitignore eintragen wenn noch nicht vorhanden
+    $gitignorePath = "$Path\.gitignore"
+    if (Test-Path $gitignorePath) {
+        $content = Get-Content $gitignorePath -Raw
+        if ($content -notmatch "\.planning/") {
+            Add-Content $gitignorePath "`n# Planning state (PM-Agent, wird nicht committed)`n.planning/`n# Archiv bleibt im Repo`n!docs/planning-history/"
+        }
+    }
+    Write-Host "  [OK] Docs: docs/adr/, failed-approaches.md, project-brief.md, .planning/" -ForegroundColor Green
 
     # Scripts
     New-Item -ItemType Directory -Path "$Path\scripts" -Force | Out-Null
@@ -463,6 +477,26 @@ function Update-ExistingProject {
             }
             Write-Host "  [OK] Docs: docs/adr/, failed-approaches.md, project-brief.md" -ForegroundColor Green
             $addedItems += "docs/"
+        }
+    }
+
+    # Planning (.planning/ fuer GSD-Wave-Modell)
+    $hasPlanning = Test-Path "$Path\.planning"
+    if (-not $hasPlanning) {
+        if (Ask-YesNo "  Planning-Ordner hinzufuegen (.planning/ fuer PM-Agent Wave-Modell)? (j/N)") {
+            New-Item -ItemType Directory -Path "$Path\.planning" -Force | Out-Null
+            New-Item -ItemType Directory -Path "$Path\docs\planning-history" -Force | Out-Null
+            Copy-Item "$TemplateDir\docs\.planning\PLAN-template.md"  "$Path\.planning\PLAN-template.md"  -Force
+            Copy-Item "$TemplateDir\docs\.planning\STATE-template.md" "$Path\.planning\STATE-template.md" -Force
+            $gitignorePath = "$Path\.gitignore"
+            if (Test-Path $gitignorePath) {
+                $content = Get-Content $gitignorePath -Raw
+                if ($content -notmatch "\.planning/") {
+                    Add-Content $gitignorePath "`n# Planning state (PM-Agent)`n.planning/`n!docs/planning-history/"
+                }
+            }
+            Write-Host "  [OK] Planning: .planning/, docs/planning-history/" -ForegroundColor Green
+            $addedItems += ".planning/"
         }
     }
 

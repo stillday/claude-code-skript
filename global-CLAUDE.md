@@ -218,6 +218,22 @@ Wenn ein Ansatz nicht funktioniert → **sofort** in `docs/failed-approaches.md`
 
 Vor jeder neuen Implementierung: `docs/failed-approaches.md` prüfen.
 
+### Context Budget & Anti-Loop (für alle Agents)
+
+**Context Budget:** Bei <= 35% verbleibendem Kontext → STATE.md sichern, stoppen, User informieren.
+Nie bei niedrigem Budget eine neue Wave oder Task-Gruppe starten.
+
+**Anti-Loop Regeln:**
+- Max 5 aufeinanderfolgende Read-Operationen ohne Write → stoppen, eskalieren
+- Max 3 Auto-Fix-Versuche pro Problem → danach Blocker melden, nicht weiter versuchen
+- Was Agents auto-fixen dürfen: Bugs, fehlende Validierung, fehlende Security-Checks (geplante)
+- Was Agents NICHT auto-fixen dürfen: Architektur, neue Dependencies, Schema-Änderungen
+
+**Formale Planung vor Ausführung:**
+- PM erstellt `.planning/PLAN-[feature].md` mit Wave-Modell bevor Sub-Agents spawnen
+- Wave-Zuordnung: Tasks ohne gemeinsame Dateien = parallel; abhängige Tasks = nächste Wave
+- STATE.md pflegen für Resumability nach Kontext-Verlust
+
 ### Memory-Renewal (nach größeren Änderungen)
 
 Nach jedem abgeschlossenen Feature oder Refactoring:
