@@ -28,8 +28,12 @@ claude-code-skript/
     ├── docs/
     │   ├── project-brief.md           ← Projekt-Discovery Vorlage
     │   ├── failed-approaches.md       ← Was nicht funktioniert hat
-    │   └── adr/
-    │       └── ADR-000-template.md    ← Architecture Decision Records
+    │   ├── adr/
+    │   │   └── ADR-000-template.md    ← Architecture Decision Records
+    │   └── .planning/                 ← Wave-Modell Templates (GSD-Integration)
+    │       ├── PLAN-template.md       ← Formale Feature-Planung mit XML-Tasks
+    │       ├── STATE-template.md      ← Execution-State (resumable nach Abbruch)
+    │       └── config.json            ← Context-Budget + Abo-Konfiguration
     ├── scripts/
     │   ├── bump-version-calver.sh     ← CalVer Bump (YYYY.MMDD.NNNN)
     │   ├── bump-version-semver.sh     ← SemVer Bump (1.2.3)
@@ -134,11 +138,16 @@ dein-projekt/
 ├── .gitignore                 ← Standard-Patterns (.env, node_modules, etc.)
 ├── .claude/
 │   └── agents/                ← Dein Agent-Team (5–8 Agents je nach Wahl)
+├── .planning/                 ← PM-Agent Wave-Modell (nicht in Git)
+│   ├── PLAN-template.md       ← Vorlage für Feature-Planung
+│   ├── STATE-template.md      ← Vorlage für Execution-State
+│   └── config.json            ← Context-Budget + Abo-Konfiguration
 ├── docs/
 │   ├── project-brief.md       ← Wird beim /discover vom PM ausgefüllt
 │   ├── failed-approaches.md   ← Dokumentation gescheiterter Ansätze
-│   └── adr/
-│       └── ADR-000-template.md ← Vorlage für Architektur-Entscheidungen
+│   ├── adr/
+│   │   └── ADR-000-template.md ← Vorlage für Architektur-Entscheidungen
+│   └── planning-history/      ← Archiv abgeschlossener Feature-Pläne
 ├── scripts/
 │   ├── bump-version.sh        ← Version bumpen (CalVer oder SemVer)
 │   └── init-version.sh        ← Initialisierung
@@ -171,12 +180,14 @@ Das Script erkennt automatisch dass ein `.git`-Ordner existiert und wechselt in 
   [OK] CLAUDE.md
   [  ] Agents (.claude/agents/)
   [  ] Docs (docs/adr/ etc.)
+  [  ] Planning (.planning/)
   [  ] Scripts (bump-version)
   [  ] VERSION Datei
   [  ] CI/CD Workflow
 
   Agent-Dateien hinzufügen (.claude/agents/)? (j/N)
   Docs-Struktur hinzufügen? (j/N)
+  Planning-Ordner hinzufügen (.planning/)? (j/N)
   ...
   Neues in Git committen? (j/N)
 ```
@@ -238,6 +249,127 @@ Benötigte Tokens (je nach genutzten MCPs):
 
 ---
 
+## Nach dem Setup: Claude Code nutzen
+
+### Projekt starten
+
+```powershell
+cd C:\coding\mein-projekt
+claude
+```
+
+### Verfügbare Commands im Chat
+
+| Command | Was passiert |
+|---------|-------------|
+| `/discover` | PM startet Projekt-Discovery (10 Fragen, füllt project-brief.md aus) |
+| `/feature [name]` | PM plant + koordiniert BE + FE + QA parallel in Git Worktrees |
+| `/plan-phase [name]` | Nur die Planungsphase: PLAN.md mit Wave-Tasks erstellen, bestätigen lassen |
+| `/execute-phase [name]` | Plan ausführen (Wave für Wave, parallel wo möglich) |
+| `/resume-phase [name]` | Nach Abbruch oder Usage-Limit-Hit fortsetzen (liest STATE.md) |
+| `/verify-work [name]` | UAT vor dem Ship: QA + FE + SEC prüfen das Feature |
+| `/ship [name]` | PR erstellen, aufräumen, Memory erneuern |
+| `/review-pr [nummer]` | SEC + QA + PERF reviewen den PR |
+| `/pre-release` | Vollständige Release-Checkliste (Tests, Security, Versioning) |
+| `/hotfix [beschreibung]` | Schneller Fix direkt von main |
+
+---
+
+## Multi-Agent-System & Wave-Modell
+
+### Wie Agents zusammenarbeiten
+
+```
+Du sprichst mit dem PM-Agent
+       │
+       ├── BE-Agent  → arbeitet in feature/[name]-be (eigenem Git Worktree)
+       ├── FE-Agent  → arbeitet in feature/[name]-fe (eigenem Git Worktree)
+       └── QA-Agent  → arbeitet in feature/[name]-qa (eigenem Git Worktree)
+              │ (alle drei parallel — kein Merge-Konflikt)
+       PM wartet, reviewed, merged → SEC prüft
+```
+
+### Formale Planung vor Ausführung (GSD-Modell)
+
+Der PM-Agent erstellt **vor dem Spawnen von Sub-Agents** immer eine formale Plan-Datei (`.planning/PLAN-[feature].md`) mit Wave-Zuordnung:
+
+```
+Wave 1: [DBA] Schema + Typen
+          ↓
+Wave 2: [BE] Service-Layer  +  [FE] UI-Komponenten   ← parallel
+          ↓
+Wave 3: [QA] Tests          +  [SEC] Security Check  ← parallel
+```
+
+**Wave-Regeln:**
+- Tasks derselben Wave laufen **parallel** wenn sie keine gemeinsamen Dateien haben
+- Wave N+1 startet erst wenn **alle** Tasks von Wave N abgeschlossen sind
+- Der Plan wird dir gezeigt und bestätigt bevor irgendetwas startet
+
+Der aktuelle Ausführungsstand wird in `.planning/STATE-[feature].md` gespeichert — damit kann der PM nach einem Abbruch oder Usage-Limit-Hit genau dort weitermachen wo er aufgehört hat.
+
+### Anti-Loop Schutz
+
+Alle Sub-Agents haben eingebaute Regeln:
+- Max **5 aufeinanderfolgende Reads** ohne Write → stoppen, PM informieren
+- Max **3 Auto-Fix-Versuche** pro Problem → danach eskalieren
+- Architektur-Entscheidungen **niemals** selbst treffen → immer fragen
+
+---
+
+## Context Budget & Usage-Limit-Handling
+
+### Konfiguration (`.planning/config.json`)
+
+Wird bei jedem neuen Projekt angelegt. Passe die Werte nach Bedarf an:
+
+```json
+{
+  "contextWarnThreshold": 35,
+  "contextStopThreshold": 15,
+  "askBeforeStop": true,
+  "subscriptionPlan": "max",
+  "onUsageLimitHit": "pause"
+}
+```
+
+| Feld | Default | Bedeutung |
+|------|---------|-----------|
+| `contextWarnThreshold` | `35` | % Kontext verbleibend → Warnung + "Weitermachen?" |
+| `contextStopThreshold` | `15` | % Kontext verbleibend → Hard Stop (kein Ask) |
+| `askBeforeStop` | `true` | Bei Warn-Schwellenwert fragen statt direkt stoppen |
+| `subscriptionPlan` | `"max"` | `"pro"` / `"max"` / `"max5x"` / `"api"` |
+| `onUsageLimitHit` | `"pause"` | `"pause"` = STATE.md sichern + warten / `"warn"` = nur warnen |
+
+### Context Budget Verhalten
+
+| Kontext verbleibend | Verhalten |
+|--------------------|-----------|
+| > 35% | Normal |
+| ≤ 35% (`contextWarnThreshold`) | Warnung + "Weitermachen (W) oder Pausieren (P)?" |
+| ≤ 15% (`contextStopThreshold`) | Hard Stop, STATE.md sichern, immer |
+
+### Abo Usage-Limit-Hit
+
+Bei Claude Pro/Max gibt es ein periodisches Usage-Limit. Wenn dieses mid-execution erreicht wird:
+
+```
+"Usage-Limit erreicht — Ausführung pausiert.
+
+Stand gesichert: .planning/STATE-[feature].md
+→ /resume-phase [feature]  wenn das Limit zurückgesetzt hat
+
+Reset: ~5 Stunden nach erstem Request dieser Periode
+Prüfen: claude.ai/settings"
+```
+
+Der `SessionStart`-Hook zeigt beim Start einer Session kurz:
+```
+[Abo: MAX] Usage-Limit prüfen: claude.ai/settings | Reset ~alle 5h
+```
+
+---
+
 ## Update-Check: Setup-Kit aktuell halten
 
 Das Setup-Kit speichert beim ersten Run die Repo-URL und den aktuellen Commit-Hash in `~/.claude/setup-kit.json`.
@@ -256,44 +388,6 @@ Das Setup-Kit speichert beim ersten Run die Repo-URL und den aktuellen Commit-Ha
 
 - Nach dem Update: Script neu starten, es zeigt die Änderungen
 - Kein Update nötig: zeigt "Aktuell." und beendet sich
-- Nach 7 Tagen ohne Check: Hinweis beim nächsten `setup.ps1`-Run
-
----
-
-## Nach dem Setup: Claude Code nutzen
-
-### Projekt starten
-
-```powershell
-cd C:\coding\mein-projekt
-claude
-```
-
-### Verfügbare Commands im Chat
-
-| Command | Was passiert |
-|---------|-------------|
-| `/discover` | PM-Agent startet Projekt-Discovery (10 Fragen, füllt project-brief.md aus) |
-| `/feature [name]` | PM koordiniert BE + FE + QA parallel in Git Worktrees |
-| `/review-pr [nummer]` | SEC + QA + PERF reviewen den PR |
-| `/pre-release` | Vollständige Release-Checkliste (Tests, Security, Versioning) |
-| `/hotfix [beschreibung]` | Schneller Fix direkt von main |
-
-### Wie das Multi-Agent-System funktioniert
-
-Beim ersten Mal erklärt der PM-Agent wie Sub-Agents funktionieren. Kurzversion:
-
-```
-Du sprichst mit dem PM-Agent
-       │
-       ├── BE-Agent  → arbeitet in feature/[name]-be (eigenem Git Worktree)
-       ├── FE-Agent  → arbeitet in feature/[name]-fe (eigenem Git Worktree)
-       └── QA-Agent  → arbeitet in feature/[name]-qa (eigenem Git Worktree)
-              │ (alle drei parallel)
-       PM wartet, reviewed, merged → SEC prüft
-```
-
-BE und FE können gleichzeitig arbeiten — kein Merge-Konflikt durch separate Worktrees.
 
 ---
 
@@ -385,6 +479,9 @@ Ja. Der Platzhalter `[USER]` wird durch den eingegebenen Namen ersetzt. Alle Tem
 **Unterstützt das Kit auch Linux/macOS?**
 Aktuell nur Windows (PowerShell). Die Shell-Scripts in `scripts/` laufen auf allen Plattformen.
 
+**Was ist der Unterschied zwischen `/feature` und `/plan-phase` + `/execute-phase`?**
+`/feature` ist der All-in-one-Flow (plant und führt aus). `/plan-phase` + `/execute-phase` trennen Planung und Ausführung — sinnvoll für komplexe Features wo du den Plan erst sehen und bestätigen willst bevor Agents spawnen, oder wenn du nach einem Usage-Limit-Hit mit `/resume-phase` fortsetzen musst.
+
 ---
 
 ## Verzeichnisstruktur nach vollständigem Setup
@@ -406,7 +503,14 @@ C:\coding\mein-projekt\        ← Dein Projekt (frisches Git-Repo)
 ├── CLAUDE.md
 ├── VERSION
 ├── .claude/agents/
-├── docs/adr/
+├── .planning/                 ← PM-Agent State (in .gitignore)
+│   ├── config.json            ← Context-Budget + Abo-Konfiguration
+│   ├── PLAN-[feature].md      ← Aktive Feature-Pläne (Wave-Tasks)
+│   └── STATE-[feature].md     ← Execution-State (für /resume-phase)
+├── docs/
+│   ├── adr/
+│   ├── failed-approaches.md
+│   └── planning-history/      ← Archiv abgeschlossener Pläne (in Git)
 ├── scripts/
 └── .github/workflows/
 ```
