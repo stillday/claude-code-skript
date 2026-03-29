@@ -89,9 +89,30 @@ async function updateSetupKit() {
       updateAvailable: false
     });
     console.log(import_chalk.default.green("\n  [OK] Update eingespielt."));
+    applyGlobalClaudeMd();
   } catch {
     console.error(import_chalk.default.red("  FEHLER beim Update-Check."));
   }
+}
+function applyGlobalClaudeMd() {
+  const source = getGlobalClaudeMd();
+  const target = path.join(CLAUDE_DIR, "CLAUDE.md");
+  if (!fs.existsSync(source)) return;
+  const newContent = fs.readFileSync(source, "utf8");
+  const oldContent = fs.existsSync(target) ? fs.readFileSync(target, "utf8") : "";
+  if (newContent === oldContent) {
+    console.log(import_chalk.default.gray("  ~/.claude/CLAUDE.md unveraendert."));
+    return;
+  }
+  if (fs.existsSync(target)) {
+    const ts = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-").slice(0, 19);
+    const backup = `${target}.backup-${ts}`;
+    fs.copySync(target, backup);
+    console.log(import_chalk.default.gray(`  Backup: ${backup}`));
+  }
+  fs.ensureDirSync(CLAUDE_DIR);
+  fs.copyFileSync(source, target);
+  console.log(import_chalk.default.green("  [OK] ~/.claude/CLAUDE.md aktualisiert \u2014 neue Regeln gelten ab der naechsten Session."));
 }
 var UPDATE_INTERVAL_DAYS = 2;
 async function checkForUpdatesInBackground() {

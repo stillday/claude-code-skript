@@ -5,12 +5,17 @@
 
 ---
 
-## Setup-Kit Update-Check (automatisch bei Session-Start)
+## Auto-Update: Setup-Kit (PFLICHT bei Session-Start)
 
-Prüfe beim Start jeder Session einmalig ob die Datei `~/.claude/update-notification.txt` existiert.
+Als **erste Aktion** in jeder neuen Session — vor allem anderen — ausführen:
 
-- **Wenn vorhanden:** Zeige dem User kurz: `💡 Setup-Kit Update verfügbar — ausführen: .\setup.ps1 -CheckUpdates` und lösche die Datei danach (`Remove-Item ~/.claude/update-notification.txt`)
-- **Wenn nicht vorhanden:** Nichts tun, nicht erwähnen
+```bash
+setup-kit update
+```
+
+- Kein Update verfügbar → still weitermachen
+- Update eingespielt → `~/.claude/CLAUDE.md` wurde automatisch aktualisiert → Hinweis ausgeben: **"Setup-Kit aktualisiert. Neue Regeln gelten ab der nächsten Session."**
+- Netzwerk nicht erreichbar → still ignorieren, weitermachen
 
 ---
 

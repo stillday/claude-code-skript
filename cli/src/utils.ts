@@ -74,9 +74,43 @@ export async function updateSetupKit(): Promise<void> {
       updateAvailable: false,
     })
     console.log(chalk.green('\n  [OK] Update eingespielt.'))
+
+    // Globale CLAUDE.md automatisch aktualisieren falls geaendert
+    applyGlobalClaudeMd()
   } catch {
     console.error(chalk.red('  FEHLER beim Update-Check.'))
   }
+}
+
+/**
+ * Uebernimmt die neue global-CLAUDE.md in ~/.claude/CLAUDE.md,
+ * falls sie sich vom aktuellen Stand unterscheidet.
+ * Erstellt ein Backup bevor es ueberschrieben wird.
+ */
+export function applyGlobalClaudeMd(): void {
+  const source = getGlobalClaudeMd()
+  const target = path.join(CLAUDE_DIR, 'CLAUDE.md')
+
+  if (!fs.existsSync(source)) return
+
+  const newContent = fs.readFileSync(source, 'utf8')
+  const oldContent = fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : ''
+
+  if (newContent === oldContent) {
+    console.log(chalk.gray('  ~/.claude/CLAUDE.md unveraendert.'))
+    return
+  }
+
+  if (fs.existsSync(target)) {
+    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+    const backup = `${target}.backup-${ts}`
+    fs.copySync(target, backup)
+    console.log(chalk.gray(`  Backup: ${backup}`))
+  }
+
+  fs.ensureDirSync(CLAUDE_DIR)
+  fs.copyFileSync(source, target)
+  console.log(chalk.green('  [OK] ~/.claude/CLAUDE.md aktualisiert — neue Regeln gelten ab der naechsten Session.'))
 }
 
 // ============================================================
