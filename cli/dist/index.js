@@ -82,9 +82,44 @@ async function updateSetupKit() {
     console.log(import_chalk.default.yellow("\n  Neue Commits:"));
     log.split("\n").filter(Boolean).forEach((l) => console.log(import_chalk.default.gray(`    ${l}`)));
     await (0, import_execa.execa)("git", ["-C", SETUP_KIT_DIR, "pull", "origin", "master"], { stdio: "inherit" });
+    const { stdout: newHash } = await (0, import_execa.execa)("git", ["-C", SETUP_KIT_DIR, "rev-parse", "HEAD"]);
+    saveConfig({
+      lastCommitHash: newHash.trim(),
+      lastUpdateCheck: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10),
+      updateAvailable: false
+    });
     console.log(import_chalk.default.green("\n  [OK] Update eingespielt."));
   } catch {
     console.error(import_chalk.default.red("  FEHLER beim Update-Check."));
+  }
+}
+var UPDATE_INTERVAL_DAYS = 2;
+async function checkForUpdatesInBackground() {
+  if (!fs.existsSync(SETUP_KIT_DIR)) return;
+  const config = loadConfig();
+  const now = /* @__PURE__ */ new Date();
+  if (config.lastUpdateCheck) {
+    const lastCheck = new Date(config.lastUpdateCheck);
+    const daysSince = (now.getTime() - lastCheck.getTime()) / (1e3 * 60 * 60 * 24);
+    if (daysSince < UPDATE_INTERVAL_DAYS) return;
+  }
+  try {
+    await (0, import_execa.execa)("git", ["-C", SETUP_KIT_DIR, "fetch", "origin"], {
+      stdio: "pipe",
+      timeout: 5e3
+    });
+    const { stdout: local } = await (0, import_execa.execa)("git", ["-C", SETUP_KIT_DIR, "rev-parse", "HEAD"]);
+    const { stdout: remote } = await (0, import_execa.execa)("git", ["-C", SETUP_KIT_DIR, "rev-parse", "origin/master"]);
+    const updateAvailable = local.trim() !== remote.trim();
+    saveConfig({
+      lastUpdateCheck: now.toISOString().slice(0, 10),
+      lastCommitHash: local.trim(),
+      updateAvailable
+    });
+    if (updateAvailable) {
+      console.log(import_chalk.default.yellow("\n  Update verfuegbar! Ausfuehren mit: setup-kit update\n"));
+    }
+  } catch {
   }
 }
 function loadConfig() {
@@ -820,6 +855,7 @@ var program = new import_commander.Command();
 program.name("setup-kit").description("Claude Code Setup Kit - portables Projekt-Setup-Tool").version("1.0.0");
 program.action(async () => {
   await ensureSetupKit();
+  checkForUpdatesInBackground();
   await runWizard();
 });
 program.command("update").description("Setup-Kit auf den neuesten Stand bringen").action(async () => {

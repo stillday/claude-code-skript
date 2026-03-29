@@ -1,6 +1,6 @@
 import { Command } from 'commander'
 import chalk from 'chalk'
-import { ensureSetupKit, updateSetupKit } from './utils.js'
+import { ensureSetupKit, updateSetupKit, checkForUpdatesInBackground } from './utils.js'
 import { runWizard, checkPrerequisites } from './wizard.js'
 
 const program = new Command()
@@ -14,6 +14,8 @@ program
 program
   .action(async () => {
     await ensureSetupKit()
+    // Non-blocking: Update-Check im Hintergrund, blockiert den Wizard nicht
+    checkForUpdatesInBackground()
     await runWizard()
   })
 

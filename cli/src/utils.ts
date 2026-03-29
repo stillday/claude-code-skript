@@ -67,6 +67,12 @@ export async function updateSetupKit(): Promise<void> {
     log.split('\n').filter(Boolean).forEach(l => console.log(chalk.gray(`    ${l}`)))
 
     await execa('git', ['-C', SETUP_KIT_DIR, 'pull', 'origin', 'master'], { stdio: 'inherit' })
+    const { stdout: newHash } = await execa('git', ['-C', SETUP_KIT_DIR, 'rev-parse', 'HEAD'])
+    saveConfig({
+      lastCommitHash: newHash.trim(),
+      lastUpdateCheck: new Date().toISOString().slice(0, 10),
+      updateAvailable: false,
+    })
     console.log(chalk.green('\n  [OK] Update eingespielt.'))
   } catch {
     console.error(chalk.red('  FEHLER beim Update-Check.'))
@@ -81,6 +87,52 @@ export interface SetupConfig {
   projectsBase?: string
   lastCommitHash?: string
   lastUpdateCheck?: string
+  updateAvailable?: boolean
+}
+
+// ============================================================
+// AUTO-UPDATE CHECK (stil im Hintergrund, alle 2 Tage)
+// ============================================================
+
+const UPDATE_INTERVAL_DAYS = 2
+
+export async function checkForUpdatesInBackground(): Promise<void> {
+  if (!fs.existsSync(SETUP_KIT_DIR)) return
+
+  const config = loadConfig()
+  const now = new Date()
+
+  // Pruefen ob Check noetig (alle UPDATE_INTERVAL_DAYS Tage)
+  if (config.lastUpdateCheck) {
+    const lastCheck = new Date(config.lastUpdateCheck)
+    const daysSince = (now.getTime() - lastCheck.getTime()) / (1000 * 60 * 60 * 24)
+    if (daysSince < UPDATE_INTERVAL_DAYS) return
+  }
+
+  try {
+    // Stilles fetch (kein Output)
+    await execa('git', ['-C', SETUP_KIT_DIR, 'fetch', 'origin'], {
+      stdio: 'pipe',
+      timeout: 5000,
+    })
+
+    const { stdout: local } = await execa('git', ['-C', SETUP_KIT_DIR, 'rev-parse', 'HEAD'])
+    const { stdout: remote } = await execa('git', ['-C', SETUP_KIT_DIR, 'rev-parse', 'origin/master'])
+
+    const updateAvailable = local.trim() !== remote.trim()
+
+    saveConfig({
+      lastUpdateCheck: now.toISOString().slice(0, 10),
+      lastCommitHash: local.trim(),
+      updateAvailable,
+    })
+
+    if (updateAvailable) {
+      console.log(chalk.yellow('\n  Update verfuegbar! Ausfuehren mit: setup-kit update\n'))
+    }
+  } catch {
+    // Netzwerkfehler still ignorieren — kein Output, kein Absturz
+  }
 }
 
 export function loadConfig(): SetupConfig {
