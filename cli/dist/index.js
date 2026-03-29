@@ -34,6 +34,7 @@ var os = __toESM(require("os"));
 var import_execa = require("execa");
 var import_chalk = __toESM(require("chalk"));
 var REPO_URL = "https://github.com/stillday/claude-code-skript.git";
+var git = (...args) => (0, import_execa.execa)("git", args, { shell: true });
 var SETUP_KIT_DIR = path.join(os.homedir(), ".claude", "setup-kit");
 var CLAUDE_DIR = path.join(os.homedir(), ".claude");
 var CONFIG_FILE = path.join(CLAUDE_DIR, "setup-kit.json");
@@ -50,7 +51,7 @@ async function ensureSetupKit() {
 `));
   await fs.ensureDir(path.dirname(SETUP_KIT_DIR));
   try {
-    await (0, import_execa.execa)("git", ["clone", REPO_URL, SETUP_KIT_DIR], { stdio: "pipe" });
+    await git("clone", REPO_URL, SETUP_KIT_DIR);
   } catch (err) {
     if (!fs.existsSync(path.join(SETUP_KIT_DIR, "project-templates"))) {
       console.error(import_chalk.default.red("  FEHLER: Klonen fehlgeschlagen."));
@@ -67,24 +68,18 @@ async function updateSetupKit() {
   }
   console.log(import_chalk.default.cyan("\nPruefe auf Updates..."));
   try {
-    await (0, import_execa.execa)("git", ["-C", SETUP_KIT_DIR, "fetch", "origin"], { stdio: "pipe" });
-    const { stdout: local } = await (0, import_execa.execa)("git", ["-C", SETUP_KIT_DIR, "rev-parse", "HEAD"]);
-    const { stdout: remote } = await (0, import_execa.execa)("git", ["-C", SETUP_KIT_DIR, "rev-parse", "origin/master"]);
+    await git("-C", SETUP_KIT_DIR, "fetch", "origin");
+    const { stdout: local } = await git("-C", SETUP_KIT_DIR, "rev-parse", "HEAD");
+    const { stdout: remote } = await git("-C", SETUP_KIT_DIR, "rev-parse", "origin/master");
     if (local.trim() === remote.trim()) {
       console.log(import_chalk.default.green("  [OK] Bereits aktuell."));
       return;
     }
-    const { stdout: log } = await (0, import_execa.execa)("git", [
-      "-C",
-      SETUP_KIT_DIR,
-      "log",
-      "--oneline",
-      `${local.trim()}..${remote.trim()}`
-    ]);
+    const { stdout: log } = await git("-C", SETUP_KIT_DIR, "log", "--oneline", `${local.trim()}..${remote.trim()}`);
     console.log(import_chalk.default.yellow("\n  Neue Commits:"));
     log.split("\n").filter(Boolean).forEach((l) => console.log(import_chalk.default.gray(`    ${l}`)));
-    await (0, import_execa.execa)("git", ["-C", SETUP_KIT_DIR, "pull", "origin", "master"], { stdio: "inherit" });
-    const { stdout: newHash } = await (0, import_execa.execa)("git", ["-C", SETUP_KIT_DIR, "rev-parse", "HEAD"]);
+    await git("-C", SETUP_KIT_DIR, "pull", "origin", "master");
+    const { stdout: newHash } = await git("-C", SETUP_KIT_DIR, "rev-parse", "HEAD");
     saveConfig({
       lastCommitHash: newHash.trim(),
       lastUpdateCheck: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10),
@@ -181,12 +176,9 @@ async function checkForUpdatesInBackground() {
     if (daysSince < UPDATE_INTERVAL_DAYS) return;
   }
   try {
-    await (0, import_execa.execa)("git", ["-C", SETUP_KIT_DIR, "fetch", "origin"], {
-      stdio: "pipe",
-      timeout: 5e3
-    });
-    const { stdout: local } = await (0, import_execa.execa)("git", ["-C", SETUP_KIT_DIR, "rev-parse", "HEAD"]);
-    const { stdout: remote } = await (0, import_execa.execa)("git", ["-C", SETUP_KIT_DIR, "rev-parse", "origin/master"]);
+    await (0, import_execa.execa)("git", ["-C", SETUP_KIT_DIR, "fetch", "origin"], { shell: true, timeout: 5e3 });
+    const { stdout: local } = await git("-C", SETUP_KIT_DIR, "rev-parse", "HEAD");
+    const { stdout: remote } = await git("-C", SETUP_KIT_DIR, "rev-parse", "origin/master");
     const updateAvailable = local.trim() !== remote.trim();
     saveConfig({
       lastUpdateCheck: now.toISOString().slice(0, 10),
@@ -254,46 +246,25 @@ function fillProjectBrief(filePath, ctx) {
   });
 }
 async function gitInit(projectPath, userName, version) {
-  await (0, import_execa.execa)("git", ["-C", projectPath, "init", "-b", "main"], { stdio: "pipe" });
-  await (0, import_execa.execa)("git", ["-C", projectPath, "add", "-A"], { stdio: "pipe" });
-  await (0, import_execa.execa)("git", [
-    "-C",
-    projectPath,
-    "-c",
-    `user.name=${userName}`,
-    "-c",
-    "user.email=setup@local",
-    "commit",
-    "-m",
-    `chore: initial project setup [v${version}]`
-  ], { stdio: "pipe" });
+  await git("-C", projectPath, "init", "-b", "main");
+  await git("-C", projectPath, "add", "-A");
+  await git("-C", projectPath, "-c", `user.name=${userName}`, "-c", "user.email=setup@local", "commit", "-m", `chore: initial project setup [v${version}]`);
 }
 async function gitCommit(projectPath, userName, message) {
-  await (0, import_execa.execa)("git", ["-C", projectPath, "add", "-A"], { stdio: "pipe" });
-  await (0, import_execa.execa)("git", [
-    "-C",
-    projectPath,
-    "-c",
-    `user.name=${userName}`,
-    "-c",
-    "user.email=setup@local",
-    "commit",
-    "-m",
-    message
-  ], { stdio: "pipe" });
+  await git("-C", projectPath, "add", "-A");
+  await git("-C", projectPath, "-c", `user.name=${userName}`, "-c", "user.email=setup@local", "commit", "-m", message);
 }
 
 // src/wizard.ts
 var fs2 = __toESM(require("fs-extra"));
 var path2 = __toESM(require("path"));
 var os2 = __toESM(require("os"));
-var import_execa2 = require("execa");
 var import_inquirer = __toESM(require("inquirer"));
 var import_chalk2 = __toESM(require("chalk"));
 async function checkPrerequisites() {
   console.log("");
   try {
-    const { stdout } = await (0, import_execa2.execa)("git", ["--version"]);
+    const { stdout } = await git("--version");
     console.log(import_chalk2.default.green(`  [OK] ${stdout.trim()}`));
   } catch {
     console.error(import_chalk2.default.red("  FEHLER: Git nicht gefunden."));
@@ -301,7 +272,7 @@ async function checkPrerequisites() {
     process.exit(1);
   }
   try {
-    await (0, import_execa2.execa)("claude", ["--version"]);
+    await execa("claude", ["--version"]);
     console.log(import_chalk2.default.green("  [OK] Claude Code gefunden"));
   } catch {
     console.log(import_chalk2.default.yellow("  [ ] Claude Code nicht gefunden"));

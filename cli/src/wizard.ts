@@ -1,12 +1,12 @@
 import * as fs from 'fs-extra'
 import * as path from 'path'
 import * as os from 'os'
-import { execa } from 'execa'
 import inquirer from 'inquirer'
 import chalk from 'chalk'
 import {
   CLAUDE_DIR,
   REPO_URL,
+  git,
   getTemplatesDir,
   getGlobalClaudeMd,
   getProjectsBase,
@@ -27,7 +27,7 @@ export async function checkPrerequisites(): Promise<void> {
   console.log('')
 
   try {
-    const { stdout } = await execa('git', ['--version'])
+    const { stdout } = await git('--version')
     console.log(chalk.green(`  [OK] ${stdout.trim()}`))
   } catch {
     console.error(chalk.red('  FEHLER: Git nicht gefunden.'))

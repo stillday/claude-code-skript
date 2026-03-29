@@ -9,6 +9,10 @@ import chalk from 'chalk'
 // ============================================================
 
 export const REPO_URL = 'https://github.com/stillday/claude-code-skript.git'
+
+// shell: true ist auf Windows noetig damit git im PATH gefunden wird
+export const git = (...args: string[]) =>
+  execa('git', args, { shell: true })
 export const SETUP_KIT_DIR = path.join(os.homedir(), '.claude', 'setup-kit')
 export const CLAUDE_DIR = path.join(os.homedir(), '.claude')
 export const CONFIG_FILE = path.join(CLAUDE_DIR, 'setup-kit.json')
@@ -34,7 +38,7 @@ export async function ensureSetupKit(): Promise<void> {
   await fs.ensureDir(path.dirname(SETUP_KIT_DIR))
 
   try {
-    await execa('git', ['clone', REPO_URL, SETUP_KIT_DIR], { stdio: 'pipe' })
+    await git('clone', REPO_URL, SETUP_KIT_DIR)
   } catch (err) {
     // Nochmal pruefen — auf Windows meldet git clone manchmal Fehler obwohl es geklappt hat
     if (!fs.existsSync(path.join(SETUP_KIT_DIR, 'project-templates'))) {
@@ -54,23 +58,21 @@ export async function updateSetupKit(): Promise<void> {
 
   console.log(chalk.cyan('\nPruefe auf Updates...'))
   try {
-    await execa('git', ['-C', SETUP_KIT_DIR, 'fetch', 'origin'], { stdio: 'pipe' })
-    const { stdout: local } = await execa('git', ['-C', SETUP_KIT_DIR, 'rev-parse', 'HEAD'])
-    const { stdout: remote } = await execa('git', ['-C', SETUP_KIT_DIR, 'rev-parse', 'origin/master'])
+    await git('-C', SETUP_KIT_DIR, 'fetch', 'origin')
+    const { stdout: local } = await git('-C', SETUP_KIT_DIR, 'rev-parse', 'HEAD')
+    const { stdout: remote } = await git('-C', SETUP_KIT_DIR, 'rev-parse', 'origin/master')
 
     if (local.trim() === remote.trim()) {
       console.log(chalk.green('  [OK] Bereits aktuell.'))
       return
     }
 
-    const { stdout: log } = await execa('git', [
-      '-C', SETUP_KIT_DIR, 'log', '--oneline', `${local.trim()}..${remote.trim()}`
-    ])
+    const { stdout: log } = await git('-C', SETUP_KIT_DIR, 'log', '--oneline', `${local.trim()}..${remote.trim()}`)
     console.log(chalk.yellow('\n  Neue Commits:'))
     log.split('\n').filter(Boolean).forEach(l => console.log(chalk.gray(`    ${l}`)))
 
-    await execa('git', ['-C', SETUP_KIT_DIR, 'pull', 'origin', 'master'], { stdio: 'inherit' })
-    const { stdout: newHash } = await execa('git', ['-C', SETUP_KIT_DIR, 'rev-parse', 'HEAD'])
+    await git('-C', SETUP_KIT_DIR, 'pull', 'origin', 'master')
+    const { stdout: newHash } = await git('-C', SETUP_KIT_DIR, 'rev-parse', 'HEAD')
     saveConfig({
       lastCommitHash: newHash.trim(),
       lastUpdateCheck: new Date().toISOString().slice(0, 10),
@@ -231,13 +233,10 @@ export async function checkForUpdatesInBackground(): Promise<void> {
 
   try {
     // Stilles fetch (kein Output)
-    await execa('git', ['-C', SETUP_KIT_DIR, 'fetch', 'origin'], {
-      stdio: 'pipe',
-      timeout: 5000,
-    })
+    await execa('git', ['-C', SETUP_KIT_DIR, 'fetch', 'origin'], { shell: true, timeout: 5000 })
 
-    const { stdout: local } = await execa('git', ['-C', SETUP_KIT_DIR, 'rev-parse', 'HEAD'])
-    const { stdout: remote } = await execa('git', ['-C', SETUP_KIT_DIR, 'rev-parse', 'origin/master'])
+    const { stdout: local } = await git('-C', SETUP_KIT_DIR, 'rev-parse', 'HEAD')
+    const { stdout: remote } = await git('-C', SETUP_KIT_DIR, 'rev-parse', 'origin/master')
 
     const updateAvailable = local.trim() !== remote.trim()
 
@@ -323,24 +322,14 @@ export function fillProjectBrief(filePath: string, ctx: ProjectContext): void {
 // ============================================================
 
 export async function gitInit(projectPath: string, userName: string, version: string): Promise<void> {
-  await execa('git', ['-C', projectPath, 'init', '-b', 'main'], { stdio: 'pipe' })
-  await execa('git', ['-C', projectPath, 'add', '-A'], { stdio: 'pipe' })
-  await execa('git', [
-    '-C', projectPath,
-    '-c', `user.name=${userName}`,
-    '-c', 'user.email=setup@local',
-    'commit', '-m', `chore: initial project setup [v${version}]`
-  ], { stdio: 'pipe' })
+  await git('-C', projectPath, 'init', '-b', 'main')
+  await git('-C', projectPath, 'add', '-A')
+  await git('-C', projectPath, '-c', `user.name=${userName}`, '-c', 'user.email=setup@local', 'commit', '-m', `chore: initial project setup [v${version}]`)
 }
 
 export async function gitCommit(projectPath: string, userName: string, message: string): Promise<void> {
-  await execa('git', ['-C', projectPath, 'add', '-A'], { stdio: 'pipe' })
-  await execa('git', [
-    '-C', projectPath,
-    '-c', `user.name=${userName}`,
-    '-c', 'user.email=setup@local',
-    'commit', '-m', message
-  ], { stdio: 'pipe' })
+  await git('-C', projectPath, 'add', '-A')
+  await git('-C', projectPath, '-c', `user.name=${userName}`, '-c', 'user.email=setup@local', 'commit', '-m', message)
 }
 
 // ============================================================
