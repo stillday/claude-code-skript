@@ -50,13 +50,15 @@ async function ensureSetupKit() {
 `));
   await fs.ensureDir(path.dirname(SETUP_KIT_DIR));
   try {
-    await (0, import_execa.execa)("git", ["clone", REPO_URL, SETUP_KIT_DIR], { stdio: "inherit" });
-    console.log(import_chalk.default.green("\n  [OK] Setup-Kit heruntergeladen.\n"));
-  } catch {
-    console.error(import_chalk.default.red("  FEHLER: Klonen fehlgeschlagen."));
-    console.error(import_chalk.default.yellow("  Pruefe Internetverbindung oder: git --version"));
-    process.exit(1);
+    await (0, import_execa.execa)("git", ["clone", REPO_URL, SETUP_KIT_DIR], { stdio: "pipe" });
+  } catch (err) {
+    if (!fs.existsSync(path.join(SETUP_KIT_DIR, "project-templates"))) {
+      console.error(import_chalk.default.red("  FEHLER: Klonen fehlgeschlagen."));
+      console.error(import_chalk.default.yellow(`  Manuell versuchen: git clone ${REPO_URL} "${SETUP_KIT_DIR}"`));
+      process.exit(1);
+    }
   }
+  console.log(import_chalk.default.green("\n  [OK] Setup-Kit heruntergeladen.\n"));
 }
 async function updateSetupKit() {
   if (!fs.existsSync(SETUP_KIT_DIR)) {

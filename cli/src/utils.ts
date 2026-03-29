@@ -34,13 +34,16 @@ export async function ensureSetupKit(): Promise<void> {
   await fs.ensureDir(path.dirname(SETUP_KIT_DIR))
 
   try {
-    await execa('git', ['clone', REPO_URL, SETUP_KIT_DIR], { stdio: 'inherit' })
-    console.log(chalk.green('\n  [OK] Setup-Kit heruntergeladen.\n'))
-  } catch {
-    console.error(chalk.red('  FEHLER: Klonen fehlgeschlagen.'))
-    console.error(chalk.yellow('  Pruefe Internetverbindung oder: git --version'))
-    process.exit(1)
+    await execa('git', ['clone', REPO_URL, SETUP_KIT_DIR], { stdio: 'pipe' })
+  } catch (err) {
+    // Nochmal pruefen — auf Windows meldet git clone manchmal Fehler obwohl es geklappt hat
+    if (!fs.existsSync(path.join(SETUP_KIT_DIR, 'project-templates'))) {
+      console.error(chalk.red('  FEHLER: Klonen fehlgeschlagen.'))
+      console.error(chalk.yellow(`  Manuell versuchen: git clone ${REPO_URL} "${SETUP_KIT_DIR}"`))
+      process.exit(1)
+    }
   }
+  console.log(chalk.green('\n  [OK] Setup-Kit heruntergeladen.\n'))
 }
 
 export async function updateSetupKit(): Promise<void> {
