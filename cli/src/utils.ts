@@ -77,6 +77,10 @@ export async function updateSetupKit(): Promise<void> {
 
     // Aenderungen ausgeben — Claude integriert sie selbst intelligent
     reportClaudeMdChanges()
+
+    console.log(chalk.bgYellow.black('\n  !! Session-Neustart empfohlen !!                              '))
+    console.log(chalk.yellow('  Die neuen Regeln gelten erst ab der naechsten Session.'))
+    console.log(chalk.yellow('  Bitte diese Session beenden und Claude Code neu starten.\n'))
   } catch {
     console.error(chalk.red('  FEHLER beim Update-Check.'))
   }

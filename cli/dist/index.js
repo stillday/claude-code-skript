@@ -90,6 +90,9 @@ async function updateSetupKit() {
     });
     console.log(import_chalk.default.green("\n  [OK] Update eingespielt."));
     reportClaudeMdChanges();
+    console.log(import_chalk.default.bgYellow.black("\n  !! Session-Neustart empfohlen !!                              "));
+    console.log(import_chalk.default.yellow("  Die neuen Regeln gelten erst ab der naechsten Session."));
+    console.log(import_chalk.default.yellow("  Bitte diese Session beenden und Claude Code neu starten.\n"));
   } catch {
     console.error(import_chalk.default.red("  FEHLER beim Update-Check."));
   }
