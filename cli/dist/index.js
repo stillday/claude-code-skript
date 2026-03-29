@@ -94,25 +94,65 @@ async function updateSetupKit() {
     console.error(import_chalk.default.red("  FEHLER beim Update-Check."));
   }
 }
+function parseMdSections(content) {
+  const lines = content.split("\n");
+  const sections = [];
+  const preambleLines = [];
+  let current = null;
+  for (const line of lines) {
+    if (/^## /.test(line)) {
+      if (current) sections.push(current);
+      current = { heading: line, body: "" };
+    } else if (current) {
+      current.body += line + "\n";
+    } else {
+      preambleLines.push(line);
+    }
+  }
+  if (current) sections.push(current);
+  return { preamble: preambleLines.join("\n"), sections };
+}
+function buildMdContent(preamble, sections) {
+  const parts = [preamble.trimEnd()];
+  for (const s of sections) {
+    parts.push("\n" + s.heading + "\n" + s.body.trimEnd());
+  }
+  return parts.join("\n") + "\n";
+}
 function applyGlobalClaudeMd() {
   const source = getGlobalClaudeMd();
   const target = path.join(CLAUDE_DIR, "CLAUDE.md");
   if (!fs.existsSync(source)) return;
   const newContent = fs.readFileSync(source, "utf8");
-  const oldContent = fs.existsSync(target) ? fs.readFileSync(target, "utf8") : "";
-  if (newContent === oldContent) {
+  const { sections: incomingSections } = parseMdSections(newContent);
+  if (!fs.existsSync(target)) {
+    fs.ensureDirSync(CLAUDE_DIR);
+    fs.writeFileSync(target, newContent, "utf8");
+    console.log(import_chalk.default.green("  [OK] ~/.claude/CLAUDE.md erstellt."));
+    return;
+  }
+  const oldContent = fs.readFileSync(target, "utf8");
+  const { preamble, sections: existingSections } = parseMdSections(oldContent);
+  const result = [...existingSections];
+  const added = [];
+  for (const incoming of incomingSections) {
+    const exists = result.some((s) => s.heading === incoming.heading);
+    if (!exists) {
+      result.push(incoming);
+      added.push(incoming.heading);
+    }
+  }
+  if (added.length === 0) {
     console.log(import_chalk.default.gray("  ~/.claude/CLAUDE.md unveraendert."));
     return;
   }
-  if (fs.existsSync(target)) {
-    const ts = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-").slice(0, 19);
-    const backup = `${target}.backup-${ts}`;
-    fs.copySync(target, backup);
-    console.log(import_chalk.default.gray(`  Backup: ${backup}`));
-  }
-  fs.ensureDirSync(CLAUDE_DIR);
-  fs.copyFileSync(source, target);
-  console.log(import_chalk.default.green("  [OK] ~/.claude/CLAUDE.md aktualisiert \u2014 neue Regeln gelten ab der naechsten Session."));
+  const ts = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  fs.copySync(target, `${target}.backup-${ts}`);
+  console.log(import_chalk.default.gray(`  Backup erstellt.`));
+  fs.writeFileSync(target, buildMdContent(preamble, result), "utf8");
+  console.log(import_chalk.default.green(`  [OK] ${added.length} neue Sektion(en) in ~/.claude/CLAUDE.md ergaenzt:`));
+  added.forEach((h) => console.log(import_chalk.default.gray(`    + ${h.replace("## ", "")}`)));
+  console.log(import_chalk.default.yellow("  Neue Regeln gelten ab der naechsten Session."));
 }
 var UPDATE_INTERVAL_DAYS = 2;
 async function checkForUpdatesInBackground() {

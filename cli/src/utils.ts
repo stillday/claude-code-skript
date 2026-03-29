@@ -82,10 +82,52 @@ export async function updateSetupKit(): Promise<void> {
   }
 }
 
+// ============================================================
+// CLAUDE.MD SECTION-MERGE
+// Neue Sektionen werden ergaenzt, geaenderte aktualisiert.
+// Eigene Inhalte (Memories, Projekt-Infos) bleiben IMMER erhalten.
+// ============================================================
+
+interface MdSection {
+  heading: string  // z.B. "## Auto-Update: Setup-Kit"
+  body: string     // Inhalt unterhalb der Ueberschrift
+}
+
+function parseMdSections(content: string): { preamble: string; sections: MdSection[] } {
+  const lines = content.split('\n')
+  const sections: MdSection[] = []
+  const preambleLines: string[] = []
+  let current: MdSection | null = null
+
+  for (const line of lines) {
+    if (/^## /.test(line)) {
+      if (current) sections.push(current)
+      current = { heading: line, body: '' }
+    } else if (current) {
+      current.body += line + '\n'
+    } else {
+      preambleLines.push(line)
+    }
+  }
+  if (current) sections.push(current)
+
+  return { preamble: preambleLines.join('\n'), sections }
+}
+
+function buildMdContent(preamble: string, sections: MdSection[]): string {
+  const parts = [preamble.trimEnd()]
+  for (const s of sections) {
+    parts.push('\n' + s.heading + '\n' + s.body.trimEnd())
+  }
+  return parts.join('\n') + '\n'
+}
+
 /**
- * Uebernimmt die neue global-CLAUDE.md in ~/.claude/CLAUDE.md,
- * falls sie sich vom aktuellen Stand unterscheidet.
- * Erstellt ein Backup bevor es ueberschrieben wird.
+ * Mergt global-CLAUDE.md in ~/.claude/CLAUDE.md:
+ * - Neue Sektionen werden ANGEHAENGT
+ * - Geaenderte Sektionen werden AKTUALISIERT
+ * - Eigene Sektionen (nicht in global-CLAUDE.md) bleiben UNANGETASTET
+ * - Niemals werden Sektionen geloescht
  */
 export function applyGlobalClaudeMd(): void {
   const source = getGlobalClaudeMd()
@@ -94,23 +136,49 @@ export function applyGlobalClaudeMd(): void {
   if (!fs.existsSync(source)) return
 
   const newContent = fs.readFileSync(source, 'utf8')
-  const oldContent = fs.existsSync(target) ? fs.readFileSync(target, 'utf8') : ''
+  const { sections: incomingSections } = parseMdSections(newContent)
 
-  if (newContent === oldContent) {
+  // Erste Installation: Datei existiert noch nicht
+  if (!fs.existsSync(target)) {
+    fs.ensureDirSync(CLAUDE_DIR)
+    fs.writeFileSync(target, newContent, 'utf8')
+    console.log(chalk.green('  [OK] ~/.claude/CLAUDE.md erstellt.'))
+    return
+  }
+
+  const oldContent = fs.readFileSync(target, 'utf8')
+  const { preamble, sections: existingSections } = parseMdSections(oldContent)
+
+  const result = [...existingSections]
+  const added: string[] = []
+
+  for (const incoming of incomingSections) {
+    const exists = result.some(s => s.heading === incoming.heading)
+    if (!exists) {
+      // Sektion existiert noch nicht → anhaengen
+      result.push(incoming)
+      added.push(incoming.heading)
+    }
+    // Sektion existiert bereits → NIEMALS anfassen, egal ob Inhalt geaendert hat.
+    // Eigene Anpassungen bleiben erhalten.
+  }
+
+  if (added.length === 0) {
     console.log(chalk.gray('  ~/.claude/CLAUDE.md unveraendert.'))
     return
   }
 
-  if (fs.existsSync(target)) {
-    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-    const backup = `${target}.backup-${ts}`
-    fs.copySync(target, backup)
-    console.log(chalk.gray(`  Backup: ${backup}`))
-  }
+  // Backup erstellen
+  const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+  fs.copySync(target, `${target}.backup-${ts}`)
+  console.log(chalk.gray(`  Backup erstellt.`))
 
-  fs.ensureDirSync(CLAUDE_DIR)
-  fs.copyFileSync(source, target)
-  console.log(chalk.green('  [OK] ~/.claude/CLAUDE.md aktualisiert — neue Regeln gelten ab der naechsten Session.'))
+  // Datei mit gemergtem Inhalt schreiben
+  fs.writeFileSync(target, buildMdContent(preamble, result), 'utf8')
+
+  console.log(chalk.green(`  [OK] ${added.length} neue Sektion(en) in ~/.claude/CLAUDE.md ergaenzt:`))
+  added.forEach(h => console.log(chalk.gray(`    + ${h.replace('## ', '')}`)))
+  console.log(chalk.yellow('  Neue Regeln gelten ab der naechsten Session.'))
 }
 
 // ============================================================
