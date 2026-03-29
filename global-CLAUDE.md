@@ -13,9 +13,19 @@ Als **erste Aktion** in jeder neuen Session — vor allem anderen — ausführen
 setup-kit update
 ```
 
-- Kein Update verfügbar → still weitermachen
-- Update eingespielt → `~/.claude/CLAUDE.md` wurde automatisch aktualisiert → Hinweis ausgeben: **"Setup-Kit aktualisiert. Neue Regeln gelten ab der nächsten Session."**
-- Netzwerk nicht erreichbar → still ignorieren, weitermachen
+**Kein Update verfügbar** → still weitermachen, nichts ausgeben.
+
+**Update eingespielt** → Der Output enthält `=== Setup-Kit: Aenderungen in CLAUDE.md ===`.
+Dann **selbständig** folgendes tun:
+1. `~/.claude/CLAUDE.md` lesen
+2. Die ausgegebenen Änderungen mit Verstand integrieren:
+   - **Neue Sektionen** → an passender thematischer Stelle einfügen (nicht blind ans Ende)
+   - **Geänderte Sektionen** → bestehende Sektion sorgfältig aktualisieren, dabei eigene Ergänzungen erhalten
+   - **Memories, Projekt-Infos, eigene Abschnitte** → NIEMALS löschen oder überschreiben
+3. `~/.claude/CLAUDE.md` mit den integrierten Änderungen speichern
+4. Kurz bestätigen: **"Setup-Kit aktualisiert: [Liste der Änderungen]. Neue Regeln aktiv."**
+
+**Netzwerk nicht erreichbar** → still ignorieren, weitermachen.
 
 ---
 

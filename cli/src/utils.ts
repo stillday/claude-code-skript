@@ -75,8 +75,8 @@ export async function updateSetupKit(): Promise<void> {
     })
     console.log(chalk.green('\n  [OK] Update eingespielt.'))
 
-    // Globale CLAUDE.md automatisch aktualisieren falls geaendert
-    applyGlobalClaudeMd()
+    // Aenderungen ausgeben — Claude integriert sie selbst intelligent
+    reportClaudeMdChanges()
   } catch {
     console.error(chalk.red('  FEHLER beim Update-Check.'))
   }
@@ -123,13 +123,13 @@ function buildMdContent(preamble: string, sections: MdSection[]): string {
 }
 
 /**
- * Mergt global-CLAUDE.md in ~/.claude/CLAUDE.md:
- * - Neue Sektionen werden ANGEHAENGT
- * - Geaenderte Sektionen werden AKTUALISIERT
- * - Eigene Sektionen (nicht in global-CLAUDE.md) bleiben UNANGETASTET
- * - Niemals werden Sektionen geloescht
+ * Vergleicht global-CLAUDE.md mit ~/.claude/CLAUDE.md und gibt
+ * strukturierte Aenderungen aus — Claude integriert sie selbst intelligent.
+ *
+ * Die CLI schreibt NICHT automatisch. Claude liest den Output und entscheidet
+ * mit Kontext und Verstand wie die Aenderungen eingebaut werden.
  */
-export function applyGlobalClaudeMd(): void {
+export function reportClaudeMdChanges(): void {
   const source = getGlobalClaudeMd()
   const target = path.join(CLAUDE_DIR, 'CLAUDE.md')
 
@@ -138,47 +138,58 @@ export function applyGlobalClaudeMd(): void {
   const newContent = fs.readFileSync(source, 'utf8')
   const { sections: incomingSections } = parseMdSections(newContent)
 
-  // Erste Installation: Datei existiert noch nicht
+  // Erste Installation: noch keine CLAUDE.md vorhanden
   if (!fs.existsSync(target)) {
-    fs.ensureDirSync(CLAUDE_DIR)
-    fs.writeFileSync(target, newContent, 'utf8')
-    console.log(chalk.green('  [OK] ~/.claude/CLAUDE.md erstellt.'))
+    console.log(chalk.yellow('\n=== Setup-Kit: Initiale CLAUDE.md ==='))
+    console.log(chalk.white('~/.claude/CLAUDE.md existiert noch nicht.'))
+    console.log(chalk.white('Bitte ~/.claude/CLAUDE.md mit folgendem Inhalt anlegen:\n'))
+    console.log(chalk.gray('--- INHALT ---'))
+    console.log(newContent)
+    console.log(chalk.gray('--- ENDE ---'))
     return
   }
 
-  const oldContent = fs.readFileSync(target, 'utf8')
-  const { preamble, sections: existingSections } = parseMdSections(oldContent)
+  const existingContent = fs.readFileSync(target, 'utf8')
+  const { sections: existingSections } = parseMdSections(existingContent)
+  const existingHeadings = new Set(existingSections.map(s => s.heading))
 
-  const result = [...existingSections]
-  const added: string[] = []
+  const newSections = incomingSections.filter(s => !existingHeadings.has(s.heading))
+  const changedSections = incomingSections.filter(s => {
+    const existing = existingSections.find(e => e.heading === s.heading)
+    return existing && existing.body !== s.body
+  })
 
-  for (const incoming of incomingSections) {
-    const exists = result.some(s => s.heading === incoming.heading)
-    if (!exists) {
-      // Sektion existiert noch nicht → anhaengen
-      result.push(incoming)
-      added.push(incoming.heading)
+  if (newSections.length === 0 && changedSections.length === 0) {
+    console.log(chalk.gray('  ~/.claude/CLAUDE.md: keine Aenderungen.'))
+    return
+  }
+
+  console.log(chalk.yellow('\n=== Setup-Kit: Aenderungen in CLAUDE.md ==='))
+  console.log(chalk.gray('Claude: Bitte diese Aenderungen intelligent in ~/.claude/CLAUDE.md'))
+  console.log(chalk.gray('        integrieren. Bestehende Inhalte, Memories und eigene'))
+  console.log(chalk.gray('        Anpassungen niemals loeschen oder ueberschreiben.\n'))
+
+  if (newSections.length > 0) {
+    console.log(chalk.cyan('NEUE SEKTIONEN (noch nicht vorhanden):'))
+    for (const s of newSections) {
+      console.log(chalk.green(`\n+ ${s.heading}`))
+      console.log(chalk.gray(s.body.trimEnd()))
     }
-    // Sektion existiert bereits → NIEMALS anfassen, egal ob Inhalt geaendert hat.
-    // Eigene Anpassungen bleiben erhalten.
   }
 
-  if (added.length === 0) {
-    console.log(chalk.gray('  ~/.claude/CLAUDE.md unveraendert.'))
-    return
+  if (changedSections.length > 0) {
+    console.log(chalk.cyan('\nGEAENDERTE SEKTIONEN (Template aktualisiert):'))
+    for (const s of changedSections) {
+      const existing = existingSections.find(e => e.heading === s.heading)!
+      console.log(chalk.yellow(`\n~ ${s.heading}`))
+      console.log(chalk.gray('  Aktuell in deiner CLAUDE.md:'))
+      existing.body.trimEnd().split('\n').forEach(l => console.log(chalk.gray(`    ${l}`)))
+      console.log(chalk.white('  Neue Version im Template:'))
+      s.body.trimEnd().split('\n').forEach(l => console.log(chalk.white(`    ${l}`)))
+    }
   }
 
-  // Backup erstellen
-  const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
-  fs.copySync(target, `${target}.backup-${ts}`)
-  console.log(chalk.gray(`  Backup erstellt.`))
-
-  // Datei mit gemergtem Inhalt schreiben
-  fs.writeFileSync(target, buildMdContent(preamble, result), 'utf8')
-
-  console.log(chalk.green(`  [OK] ${added.length} neue Sektion(en) in ~/.claude/CLAUDE.md ergaenzt:`))
-  added.forEach(h => console.log(chalk.gray(`    + ${h.replace('## ', '')}`)))
-  console.log(chalk.yellow('  Neue Regeln gelten ab der naechsten Session.'))
+  console.log(chalk.yellow('\n=== Ende der Aenderungen ===\n'))
 }
 
 // ============================================================

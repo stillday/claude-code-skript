@@ -89,7 +89,7 @@ async function updateSetupKit() {
       updateAvailable: false
     });
     console.log(import_chalk.default.green("\n  [OK] Update eingespielt."));
-    applyGlobalClaudeMd();
+    reportClaudeMdChanges();
   } catch {
     console.error(import_chalk.default.red("  FEHLER beim Update-Check."));
   }
@@ -112,47 +112,58 @@ function parseMdSections(content) {
   if (current) sections.push(current);
   return { preamble: preambleLines.join("\n"), sections };
 }
-function buildMdContent(preamble, sections) {
-  const parts = [preamble.trimEnd()];
-  for (const s of sections) {
-    parts.push("\n" + s.heading + "\n" + s.body.trimEnd());
-  }
-  return parts.join("\n") + "\n";
-}
-function applyGlobalClaudeMd() {
+function reportClaudeMdChanges() {
   const source = getGlobalClaudeMd();
   const target = path.join(CLAUDE_DIR, "CLAUDE.md");
   if (!fs.existsSync(source)) return;
   const newContent = fs.readFileSync(source, "utf8");
   const { sections: incomingSections } = parseMdSections(newContent);
   if (!fs.existsSync(target)) {
-    fs.ensureDirSync(CLAUDE_DIR);
-    fs.writeFileSync(target, newContent, "utf8");
-    console.log(import_chalk.default.green("  [OK] ~/.claude/CLAUDE.md erstellt."));
+    console.log(import_chalk.default.yellow("\n=== Setup-Kit: Initiale CLAUDE.md ==="));
+    console.log(import_chalk.default.white("~/.claude/CLAUDE.md existiert noch nicht."));
+    console.log(import_chalk.default.white("Bitte ~/.claude/CLAUDE.md mit folgendem Inhalt anlegen:\n"));
+    console.log(import_chalk.default.gray("--- INHALT ---"));
+    console.log(newContent);
+    console.log(import_chalk.default.gray("--- ENDE ---"));
     return;
   }
-  const oldContent = fs.readFileSync(target, "utf8");
-  const { preamble, sections: existingSections } = parseMdSections(oldContent);
-  const result = [...existingSections];
-  const added = [];
-  for (const incoming of incomingSections) {
-    const exists = result.some((s) => s.heading === incoming.heading);
-    if (!exists) {
-      result.push(incoming);
-      added.push(incoming.heading);
+  const existingContent = fs.readFileSync(target, "utf8");
+  const { sections: existingSections } = parseMdSections(existingContent);
+  const existingHeadings = new Set(existingSections.map((s) => s.heading));
+  const newSections = incomingSections.filter((s) => !existingHeadings.has(s.heading));
+  const changedSections = incomingSections.filter((s) => {
+    const existing = existingSections.find((e) => e.heading === s.heading);
+    return existing && existing.body !== s.body;
+  });
+  if (newSections.length === 0 && changedSections.length === 0) {
+    console.log(import_chalk.default.gray("  ~/.claude/CLAUDE.md: keine Aenderungen."));
+    return;
+  }
+  console.log(import_chalk.default.yellow("\n=== Setup-Kit: Aenderungen in CLAUDE.md ==="));
+  console.log(import_chalk.default.gray("Claude: Bitte diese Aenderungen intelligent in ~/.claude/CLAUDE.md"));
+  console.log(import_chalk.default.gray("        integrieren. Bestehende Inhalte, Memories und eigene"));
+  console.log(import_chalk.default.gray("        Anpassungen niemals loeschen oder ueberschreiben.\n"));
+  if (newSections.length > 0) {
+    console.log(import_chalk.default.cyan("NEUE SEKTIONEN (noch nicht vorhanden):"));
+    for (const s of newSections) {
+      console.log(import_chalk.default.green(`
++ ${s.heading}`));
+      console.log(import_chalk.default.gray(s.body.trimEnd()));
     }
   }
-  if (added.length === 0) {
-    console.log(import_chalk.default.gray("  ~/.claude/CLAUDE.md unveraendert."));
-    return;
+  if (changedSections.length > 0) {
+    console.log(import_chalk.default.cyan("\nGEAENDERTE SEKTIONEN (Template aktualisiert):"));
+    for (const s of changedSections) {
+      const existing = existingSections.find((e) => e.heading === s.heading);
+      console.log(import_chalk.default.yellow(`
+~ ${s.heading}`));
+      console.log(import_chalk.default.gray("  Aktuell in deiner CLAUDE.md:"));
+      existing.body.trimEnd().split("\n").forEach((l) => console.log(import_chalk.default.gray(`    ${l}`)));
+      console.log(import_chalk.default.white("  Neue Version im Template:"));
+      s.body.trimEnd().split("\n").forEach((l) => console.log(import_chalk.default.white(`    ${l}`)));
+    }
   }
-  const ts = (/* @__PURE__ */ new Date()).toISOString().replace(/[:.]/g, "-").slice(0, 19);
-  fs.copySync(target, `${target}.backup-${ts}`);
-  console.log(import_chalk.default.gray(`  Backup erstellt.`));
-  fs.writeFileSync(target, buildMdContent(preamble, result), "utf8");
-  console.log(import_chalk.default.green(`  [OK] ${added.length} neue Sektion(en) in ~/.claude/CLAUDE.md ergaenzt:`));
-  added.forEach((h) => console.log(import_chalk.default.gray(`    + ${h.replace("## ", "")}`)));
-  console.log(import_chalk.default.yellow("  Neue Regeln gelten ab der naechsten Session."));
+  console.log(import_chalk.default.yellow("\n=== Ende der Aenderungen ===\n"));
 }
 var UPDATE_INTERVAL_DAYS = 2;
 async function checkForUpdatesInBackground() {
