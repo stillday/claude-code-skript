@@ -10,9 +10,59 @@ import chalk from 'chalk'
 
 export const REPO_URL = 'https://github.com/stillday/claude-code-skript.git'
 
-// shell: true ist auf Windows noetig damit git im PATH gefunden wird
+// ============================================================
+// GIT RESOLVER — findet git auf Windows zuverlässig
+// ============================================================
+
+let _gitExe: string | null = null
+
+function resolveGitExe(): string {
+  if (_gitExe) return _gitExe
+
+  const { execSync, execFileSync } = require('child_process') as typeof import('child_process')
+
+  // 1. Direkt ohne Shell — erbt PATH vom Parent-Prozess
+  try {
+    execFileSync('git', ['--version'], { stdio: 'pipe' })
+    _gitExe = 'git'
+    return _gitExe
+  } catch {}
+
+  // 2. Via Shell-String — cmd.exe / sh wertet PATH erneut aus
+  try {
+    execSync('git --version', { stdio: 'pipe' })
+    _gitExe = 'git'
+    return _gitExe
+  } catch {}
+
+  // 3. Unix / Git Bash: which git
+  try {
+    const found = (execSync('which git', { encoding: 'utf8' }) as string).trim()
+    if (found) { _gitExe = found; return _gitExe }
+  } catch {}
+
+  // 4. Windows: where git
+  try {
+    const found = (execSync('where git', { encoding: 'utf8' }) as string).trim().split('\n')[0].trim()
+    if (found) { _gitExe = found; return _gitExe }
+  } catch {}
+
+  // 5. Bekannte Windows-Installationspfade als letzter Fallback
+  const candidates = [
+    'C:\\Program Files\\Git\\cmd\\git.exe',
+    'C:\\Program Files\\Git\\bin\\git.exe',
+    path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Git', 'cmd', 'git.exe'),
+    'C:\\Program Files (x86)\\Git\\cmd\\git.exe',
+  ]
+  for (const c of candidates) {
+    if (fs.existsSync(c)) { _gitExe = c; return _gitExe }
+  }
+
+  throw new Error('git nicht gefunden')
+}
+
 export const git = (...args: string[]) =>
-  execa('git', args, { shell: true })
+  execa(resolveGitExe(), args, { stdio: 'pipe' })
 export const SETUP_KIT_DIR = path.join(os.homedir(), '.claude', 'setup-kit')
 export const CLAUDE_DIR = path.join(os.homedir(), '.claude')
 export const CONFIG_FILE = path.join(CLAUDE_DIR, 'setup-kit.json')

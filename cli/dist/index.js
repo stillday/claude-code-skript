@@ -34,7 +34,53 @@ var os = __toESM(require("os"));
 var import_execa = require("execa");
 var import_chalk = __toESM(require("chalk"));
 var REPO_URL = "https://github.com/stillday/claude-code-skript.git";
-var git = (...args) => (0, import_execa.execa)("git", args, { shell: true });
+var _gitExe = null;
+function resolveGitExe() {
+  if (_gitExe) return _gitExe;
+  const { execSync, execFileSync } = require("child_process");
+  try {
+    execFileSync("git", ["--version"], { stdio: "pipe" });
+    _gitExe = "git";
+    return _gitExe;
+  } catch {
+  }
+  try {
+    execSync("git --version", { stdio: "pipe" });
+    _gitExe = "git";
+    return _gitExe;
+  } catch {
+  }
+  try {
+    const found = execSync("which git", { encoding: "utf8" }).trim();
+    if (found) {
+      _gitExe = found;
+      return _gitExe;
+    }
+  } catch {
+  }
+  try {
+    const found = execSync("where git", { encoding: "utf8" }).trim().split("\n")[0].trim();
+    if (found) {
+      _gitExe = found;
+      return _gitExe;
+    }
+  } catch {
+  }
+  const candidates = [
+    "C:\\Program Files\\Git\\cmd\\git.exe",
+    "C:\\Program Files\\Git\\bin\\git.exe",
+    path.join(os.homedir(), "AppData", "Local", "Programs", "Git", "cmd", "git.exe"),
+    "C:\\Program Files (x86)\\Git\\cmd\\git.exe"
+  ];
+  for (const c of candidates) {
+    if (fs.existsSync(c)) {
+      _gitExe = c;
+      return _gitExe;
+    }
+  }
+  throw new Error("git nicht gefunden");
+}
+var git = (...args) => (0, import_execa.execa)(resolveGitExe(), args, { stdio: "pipe" });
 var SETUP_KIT_DIR = path.join(os.homedir(), ".claude", "setup-kit");
 var CLAUDE_DIR = path.join(os.homedir(), ".claude");
 var CONFIG_FILE = path.join(CLAUDE_DIR, "setup-kit.json");
@@ -267,9 +313,8 @@ async function checkPrerequisites() {
     const { stdout } = await git("--version");
     console.log(import_chalk2.default.green(`  [OK] ${stdout.trim()}`));
   } catch {
-    console.error(import_chalk2.default.red("  FEHLER: Git nicht gefunden."));
-    console.error(import_chalk2.default.yellow("  Installieren: winget install Git.Git"));
-    process.exit(1);
+    console.log(import_chalk2.default.yellow("  [ ] Git nicht gefunden \u2014 Git-Features (init, commit) nicht verfuegbar."));
+    console.log(import_chalk2.default.gray("      Installieren: winget install Git.Git"));
   }
   try {
     await execa("claude", ["--version"]);

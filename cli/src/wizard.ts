@@ -30,9 +30,8 @@ export async function checkPrerequisites(): Promise<void> {
     const { stdout } = await git('--version')
     console.log(chalk.green(`  [OK] ${stdout.trim()}`))
   } catch {
-    console.error(chalk.red('  FEHLER: Git nicht gefunden.'))
-    console.error(chalk.yellow('  Installieren: winget install Git.Git'))
-    process.exit(1)
+    console.log(chalk.yellow('  [ ] Git nicht gefunden — Git-Features (init, commit) nicht verfuegbar.'))
+    console.log(chalk.gray('      Installieren: winget install Git.Git'))
   }
 
   try {
