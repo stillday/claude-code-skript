@@ -27,7 +27,7 @@ export async function checkPrerequisites(): Promise<void> {
   console.log('')
 
   try {
-    const { stdout } = await git('--version')
+    const { stdout } = git('--version')
     console.log(chalk.green(`  [OK] ${stdout.trim()}`))
   } catch {
     console.log(chalk.yellow('  [ ] Git nicht gefunden — Git-Features (init, commit) nicht verfuegbar.'))
@@ -391,7 +391,7 @@ async function installNewProject(
 
   // Git init
   console.log(chalk.white('\n  Initialisiere Git-Repo...'))
-  await gitInit(projectPath, userName, versionStr)
+  gitInit(projectPath, userName, versionStr)
   console.log(chalk.green(`  [OK] Git: main-Branch, erster Commit v${versionStr}`))
 
   if (provider !== 'none') {
@@ -601,7 +601,7 @@ async function updateExistingProject(
       default: true,
     }])
     if (doCommit) {
-      await gitCommit(projectPath, userName, `chore: add claude-code setup (${added.join(', ')})`)
+      gitCommit(projectPath, userName, `chore: add claude-code setup (${added.join(', ')})`)
       console.log(chalk.green('  [OK] Commit erstellt'))
     }
   } else {

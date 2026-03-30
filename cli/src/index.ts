@@ -13,8 +13,7 @@ program
 // Standard: setup-kit (kein Subcommand) -> Wizard starten
 program
   .action(async () => {
-    await ensureSetupKit()
-    // Non-blocking: Update-Check im Hintergrund, blockiert den Wizard nicht
+    ensureSetupKit()
     checkForUpdatesInBackground()
     await runWizard()
   })
@@ -23,8 +22,8 @@ program
 program
   .command('update')
   .description('Setup-Kit auf den neuesten Stand bringen')
-  .action(async () => {
-    await updateSetupKit()
+  .action(() => {
+    updateSetupKit()
   })
 
 // setup-kit status -> Prereqs + Skills anzeigen

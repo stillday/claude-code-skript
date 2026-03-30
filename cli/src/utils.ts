@@ -1,7 +1,7 @@
 import * as fs from 'fs-extra'
 import * as path from 'path'
 import * as os from 'os'
-import { execa } from 'execa'
+import { spawnSync, execSync, execFileSync } from 'child_process'
 import chalk from 'chalk'
 
 // ============================================================
@@ -19,52 +19,34 @@ let _gitExe: string | null = null
 function resolveGitExe(): string {
   if (_gitExe) return _gitExe
 
-  const { execSync, execFileSync } = require('child_process') as typeof import('child_process')
-
-  // 1. Direkt ohne Shell — erbt PATH vom Parent-Prozess
-  try {
-    execFileSync('git', ['--version'], { stdio: 'pipe' })
-    _gitExe = 'git'
-    return _gitExe
-  } catch {}
-
-  // 2. Via Shell-String — cmd.exe / sh wertet PATH erneut aus
-  try {
-    execSync('git --version', { stdio: 'pipe' })
-    _gitExe = 'git'
-    return _gitExe
-  } catch {}
-
-  // 3. Unix / Git Bash: which git
-  try {
-    const found = (execSync('which git', { encoding: 'utf8' }) as string).trim()
-    if (found) { _gitExe = found; return _gitExe }
-  } catch {}
-
-  // 4. Windows: where git
-  try {
-    const found = (execSync('where git', { encoding: 'utf8' }) as string).trim().split('\n')[0].trim()
-    if (found) { _gitExe = found; return _gitExe }
-  } catch {}
-
-  // 5. Bekannte Windows/Git-Bash-Installationspfade als letzter Fallback
-  const candidates = [
+  // 1. Direkt ohne Shell
+  try { execFileSync('git', ['--version'], { stdio: 'pipe' }); _gitExe = 'git'; return _gitExe } catch {}
+  // 2. Via Shell
+  try { execSync('git --version', { stdio: 'pipe' }); _gitExe = 'git'; return _gitExe } catch {}
+  // 3. which (Unix/Git Bash)
+  try { const r = execSync('which git', { encoding: 'utf8' }).trim(); if (r) { _gitExe = r; return _gitExe } } catch {}
+  // 4. where (Windows CMD)
+  try { const r = execSync('where git', { encoding: 'utf8' }).trim().split('\n')[0].trim(); if (r) { _gitExe = r; return _gitExe } } catch {}
+  // 5. Bekannte Installationspfade
+  for (const c of [
     'C:\\Program Files\\Git\\cmd\\git.exe',
     'C:\\Program Files\\Git\\bin\\git.exe',
     'C:\\Program Files\\Git\\usr\\bin\\git.exe',
     'C:\\Program Files\\Git\\mingw64\\bin\\git.exe',
     path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Git', 'cmd', 'git.exe'),
-    'C:\\Program Files (x86)\\Git\\cmd\\git.exe',
-  ]
-  for (const c of candidates) {
-    if (fs.existsSync(c)) { _gitExe = c; return _gitExe }
-  }
+  ]) { if (fs.existsSync(c)) { _gitExe = c; return _gitExe } }
 
   throw new Error('git nicht gefunden')
 }
 
-export const git = (...args: string[]) =>
-  execa(resolveGitExe(), args, { stdio: 'pipe' })
+/** Fuehrt git-Befehl aus, gibt { stdout, stderr } zurueck oder wirft bei Fehler */
+export function git(...args: string[]): { stdout: string; stderr: string } {
+  const exe = resolveGitExe()
+  const result = spawnSync(exe, args, { encoding: 'utf8', stdio: 'pipe' })
+  if (result.error) throw result.error
+  if (result.status !== 0) throw new Error(result.stderr?.toString().trim() || `git ${args[0]} failed`)
+  return { stdout: result.stdout?.toString() ?? '', stderr: result.stderr?.toString() ?? '' }
+}
 export const SETUP_KIT_DIR = path.join(os.homedir(), '.claude', 'setup-kit')
 export const CLAUDE_DIR = path.join(os.homedir(), '.claude')
 export const CONFIG_FILE = path.join(CLAUDE_DIR, 'setup-kit.json')
@@ -81,18 +63,17 @@ export function getGlobalClaudeMd(): string {
 // SETUP-KIT REPO — erster Start / Update
 // ============================================================
 
-export async function ensureSetupKit(): Promise<void> {
+export function ensureSetupKit(): void {
   if (fs.existsSync(path.join(SETUP_KIT_DIR, 'project-templates'))) return
 
   console.log(chalk.cyan('\nErster Start: Lade Setup-Kit herunter...'))
   console.log(chalk.gray(`  Ziel: ${SETUP_KIT_DIR}\n`))
 
-  await fs.ensureDir(path.dirname(SETUP_KIT_DIR))
+  fs.ensureDirSync(path.dirname(SETUP_KIT_DIR))
 
   try {
-    await git('clone', REPO_URL, SETUP_KIT_DIR)
-  } catch (err) {
-    // Nochmal pruefen — auf Windows meldet git clone manchmal Fehler obwohl es geklappt hat
+    git('clone', REPO_URL, SETUP_KIT_DIR)
+  } catch {
     if (!fs.existsSync(path.join(SETUP_KIT_DIR, 'project-templates'))) {
       console.error(chalk.red('  FEHLER: Klonen fehlgeschlagen.'))
       console.error(chalk.yellow(`  Manuell versuchen: git clone ${REPO_URL} "${SETUP_KIT_DIR}"`))
@@ -102,29 +83,29 @@ export async function ensureSetupKit(): Promise<void> {
   console.log(chalk.green('\n  [OK] Setup-Kit heruntergeladen.\n'))
 }
 
-export async function updateSetupKit(): Promise<void> {
+export function updateSetupKit(): void {
   if (!fs.existsSync(SETUP_KIT_DIR)) {
-    await ensureSetupKit()
+    ensureSetupKit()
     return
   }
 
   console.log(chalk.cyan('\nPruefe auf Updates...'))
   try {
-    await git('-C', SETUP_KIT_DIR, 'fetch', 'origin')
-    const { stdout: local } = await git('-C', SETUP_KIT_DIR, 'rev-parse', 'HEAD')
-    const { stdout: remote } = await git('-C', SETUP_KIT_DIR, 'rev-parse', 'origin/master')
+    git('-C', SETUP_KIT_DIR, 'fetch', 'origin')
+    const { stdout: local } = git('-C', SETUP_KIT_DIR, 'rev-parse', 'HEAD')
+    const { stdout: remote } = git('-C', SETUP_KIT_DIR, 'rev-parse', 'origin/master')
 
     if (local.trim() === remote.trim()) {
       console.log(chalk.green('  [OK] Bereits aktuell.'))
       return
     }
 
-    const { stdout: log } = await git('-C', SETUP_KIT_DIR, 'log', '--oneline', `${local.trim()}..${remote.trim()}`)
+    const { stdout: log } = git('-C', SETUP_KIT_DIR, 'log', '--oneline', `${local.trim()}..${remote.trim()}`)
     console.log(chalk.yellow('\n  Neue Commits:'))
     log.split('\n').filter(Boolean).forEach(l => console.log(chalk.gray(`    ${l}`)))
 
-    await git('-C', SETUP_KIT_DIR, 'pull', 'origin', 'master')
-    const { stdout: newHash } = await git('-C', SETUP_KIT_DIR, 'rev-parse', 'HEAD')
+    git('-C', SETUP_KIT_DIR, 'pull', 'origin', 'master')
+    const { stdout: newHash } = git('-C', SETUP_KIT_DIR, 'rev-parse', 'HEAD')
     saveConfig({
       lastCommitHash: newHash.trim(),
       lastUpdateCheck: new Date().toISOString().slice(0, 10),
@@ -270,25 +251,23 @@ export interface SetupConfig {
 
 const UPDATE_INTERVAL_DAYS = 2
 
-export async function checkForUpdatesInBackground(): Promise<void> {
+export function checkForUpdatesInBackground(): void {
   if (!fs.existsSync(SETUP_KIT_DIR)) return
 
   const config = loadConfig()
   const now = new Date()
 
-  // Pruefen ob Check noetig (alle UPDATE_INTERVAL_DAYS Tage)
   if (config.lastUpdateCheck) {
-    const lastCheck = new Date(config.lastUpdateCheck)
-    const daysSince = (now.getTime() - lastCheck.getTime()) / (1000 * 60 * 60 * 24)
+    const daysSince = (now.getTime() - new Date(config.lastUpdateCheck).getTime()) / (1000 * 60 * 60 * 24)
     if (daysSince < UPDATE_INTERVAL_DAYS) return
   }
 
   try {
-    // Stilles fetch (kein Output)
-    await execa('git', ['-C', SETUP_KIT_DIR, 'fetch', 'origin'], { shell: true, timeout: 5000 })
+    // Stilles fetch mit Timeout via spawnSync
+    spawnSync(resolveGitExe(), ['-C', SETUP_KIT_DIR, 'fetch', 'origin'], { stdio: 'pipe', timeout: 5000 })
 
-    const { stdout: local } = await git('-C', SETUP_KIT_DIR, 'rev-parse', 'HEAD')
-    const { stdout: remote } = await git('-C', SETUP_KIT_DIR, 'rev-parse', 'origin/master')
+    const { stdout: local } = git('-C', SETUP_KIT_DIR, 'rev-parse', 'HEAD')
+    const { stdout: remote } = git('-C', SETUP_KIT_DIR, 'rev-parse', 'origin/master')
 
     const updateAvailable = local.trim() !== remote.trim()
 
@@ -373,15 +352,15 @@ export function fillProjectBrief(filePath: string, ctx: ProjectContext): void {
 // GIT
 // ============================================================
 
-export async function gitInit(projectPath: string, userName: string, version: string): Promise<void> {
-  await git('-C', projectPath, 'init', '-b', 'main')
-  await git('-C', projectPath, 'add', '-A')
-  await git('-C', projectPath, '-c', `user.name=${userName}`, '-c', 'user.email=setup@local', 'commit', '-m', `chore: initial project setup [v${version}]`)
+export function gitInit(projectPath: string, userName: string, version: string): void {
+  git('-C', projectPath, 'init', '-b', 'main')
+  git('-C', projectPath, 'add', '-A')
+  git('-C', projectPath, '-c', `user.name=${userName}`, '-c', 'user.email=setup@local', 'commit', '-m', `chore: initial project setup [v${version}]`)
 }
 
-export async function gitCommit(projectPath: string, userName: string, message: string): Promise<void> {
-  await git('-C', projectPath, 'add', '-A')
-  await git('-C', projectPath, '-c', `user.name=${userName}`, '-c', 'user.email=setup@local', 'commit', '-m', message)
+export function gitCommit(projectPath: string, userName: string, message: string): void {
+  git('-C', projectPath, 'add', '-A')
+  git('-C', projectPath, '-c', `user.name=${userName}`, '-c', 'user.email=setup@local', 'commit', '-m', message)
 }
 
 // ============================================================

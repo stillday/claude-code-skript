@@ -31,50 +31,47 @@ var import_chalk3 = __toESM(require("chalk"));
 var fs = __toESM(require("fs-extra"));
 var path = __toESM(require("path"));
 var os = __toESM(require("os"));
-var import_execa = require("execa");
+var import_child_process = require("child_process");
 var import_chalk = __toESM(require("chalk"));
 var REPO_URL = "https://github.com/stillday/claude-code-skript.git";
 var _gitExe = null;
 function resolveGitExe() {
   if (_gitExe) return _gitExe;
-  const { execSync, execFileSync } = require("child_process");
   try {
-    execFileSync("git", ["--version"], { stdio: "pipe" });
+    (0, import_child_process.execFileSync)("git", ["--version"], { stdio: "pipe" });
     _gitExe = "git";
     return _gitExe;
   } catch {
   }
   try {
-    execSync("git --version", { stdio: "pipe" });
+    (0, import_child_process.execSync)("git --version", { stdio: "pipe" });
     _gitExe = "git";
     return _gitExe;
   } catch {
   }
   try {
-    const found = execSync("which git", { encoding: "utf8" }).trim();
-    if (found) {
-      _gitExe = found;
+    const r = (0, import_child_process.execSync)("which git", { encoding: "utf8" }).trim();
+    if (r) {
+      _gitExe = r;
       return _gitExe;
     }
   } catch {
   }
   try {
-    const found = execSync("where git", { encoding: "utf8" }).trim().split("\n")[0].trim();
-    if (found) {
-      _gitExe = found;
+    const r = (0, import_child_process.execSync)("where git", { encoding: "utf8" }).trim().split("\n")[0].trim();
+    if (r) {
+      _gitExe = r;
       return _gitExe;
     }
   } catch {
   }
-  const candidates = [
+  for (const c of [
     "C:\\Program Files\\Git\\cmd\\git.exe",
     "C:\\Program Files\\Git\\bin\\git.exe",
     "C:\\Program Files\\Git\\usr\\bin\\git.exe",
     "C:\\Program Files\\Git\\mingw64\\bin\\git.exe",
-    path.join(os.homedir(), "AppData", "Local", "Programs", "Git", "cmd", "git.exe"),
-    "C:\\Program Files (x86)\\Git\\cmd\\git.exe"
-  ];
-  for (const c of candidates) {
+    path.join(os.homedir(), "AppData", "Local", "Programs", "Git", "cmd", "git.exe")
+  ]) {
     if (fs.existsSync(c)) {
       _gitExe = c;
       return _gitExe;
@@ -82,7 +79,13 @@ function resolveGitExe() {
   }
   throw new Error("git nicht gefunden");
 }
-var git = (...args) => (0, import_execa.execa)(resolveGitExe(), args, { stdio: "pipe" });
+function git(...args) {
+  const exe = resolveGitExe();
+  const result = (0, import_child_process.spawnSync)(exe, args, { encoding: "utf8", stdio: "pipe" });
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error(result.stderr?.toString().trim() || `git ${args[0]} failed`);
+  return { stdout: result.stdout?.toString() ?? "", stderr: result.stderr?.toString() ?? "" };
+}
 var SETUP_KIT_DIR = path.join(os.homedir(), ".claude", "setup-kit");
 var CLAUDE_DIR = path.join(os.homedir(), ".claude");
 var CONFIG_FILE = path.join(CLAUDE_DIR, "setup-kit.json");
@@ -92,15 +95,15 @@ function getTemplatesDir() {
 function getGlobalClaudeMd() {
   return path.join(SETUP_KIT_DIR, "global-CLAUDE.md");
 }
-async function ensureSetupKit() {
+function ensureSetupKit() {
   if (fs.existsSync(path.join(SETUP_KIT_DIR, "project-templates"))) return;
   console.log(import_chalk.default.cyan("\nErster Start: Lade Setup-Kit herunter..."));
   console.log(import_chalk.default.gray(`  Ziel: ${SETUP_KIT_DIR}
 `));
-  await fs.ensureDir(path.dirname(SETUP_KIT_DIR));
+  fs.ensureDirSync(path.dirname(SETUP_KIT_DIR));
   try {
-    await git("clone", REPO_URL, SETUP_KIT_DIR);
-  } catch (err) {
+    git("clone", REPO_URL, SETUP_KIT_DIR);
+  } catch {
     if (!fs.existsSync(path.join(SETUP_KIT_DIR, "project-templates"))) {
       console.error(import_chalk.default.red("  FEHLER: Klonen fehlgeschlagen."));
       console.error(import_chalk.default.yellow(`  Manuell versuchen: git clone ${REPO_URL} "${SETUP_KIT_DIR}"`));
@@ -109,25 +112,25 @@ async function ensureSetupKit() {
   }
   console.log(import_chalk.default.green("\n  [OK] Setup-Kit heruntergeladen.\n"));
 }
-async function updateSetupKit() {
+function updateSetupKit() {
   if (!fs.existsSync(SETUP_KIT_DIR)) {
-    await ensureSetupKit();
+    ensureSetupKit();
     return;
   }
   console.log(import_chalk.default.cyan("\nPruefe auf Updates..."));
   try {
-    await git("-C", SETUP_KIT_DIR, "fetch", "origin");
-    const { stdout: local } = await git("-C", SETUP_KIT_DIR, "rev-parse", "HEAD");
-    const { stdout: remote } = await git("-C", SETUP_KIT_DIR, "rev-parse", "origin/master");
+    git("-C", SETUP_KIT_DIR, "fetch", "origin");
+    const { stdout: local } = git("-C", SETUP_KIT_DIR, "rev-parse", "HEAD");
+    const { stdout: remote } = git("-C", SETUP_KIT_DIR, "rev-parse", "origin/master");
     if (local.trim() === remote.trim()) {
       console.log(import_chalk.default.green("  [OK] Bereits aktuell."));
       return;
     }
-    const { stdout: log } = await git("-C", SETUP_KIT_DIR, "log", "--oneline", `${local.trim()}..${remote.trim()}`);
+    const { stdout: log } = git("-C", SETUP_KIT_DIR, "log", "--oneline", `${local.trim()}..${remote.trim()}`);
     console.log(import_chalk.default.yellow("\n  Neue Commits:"));
     log.split("\n").filter(Boolean).forEach((l) => console.log(import_chalk.default.gray(`    ${l}`)));
-    await git("-C", SETUP_KIT_DIR, "pull", "origin", "master");
-    const { stdout: newHash } = await git("-C", SETUP_KIT_DIR, "rev-parse", "HEAD");
+    git("-C", SETUP_KIT_DIR, "pull", "origin", "master");
+    const { stdout: newHash } = git("-C", SETUP_KIT_DIR, "rev-parse", "HEAD");
     saveConfig({
       lastCommitHash: newHash.trim(),
       lastUpdateCheck: (/* @__PURE__ */ new Date()).toISOString().slice(0, 10),
@@ -214,19 +217,18 @@ function reportClaudeMdChanges() {
   console.log(import_chalk.default.yellow("\n=== Ende der Aenderungen ===\n"));
 }
 var UPDATE_INTERVAL_DAYS = 2;
-async function checkForUpdatesInBackground() {
+function checkForUpdatesInBackground() {
   if (!fs.existsSync(SETUP_KIT_DIR)) return;
   const config = loadConfig();
   const now = /* @__PURE__ */ new Date();
   if (config.lastUpdateCheck) {
-    const lastCheck = new Date(config.lastUpdateCheck);
-    const daysSince = (now.getTime() - lastCheck.getTime()) / (1e3 * 60 * 60 * 24);
+    const daysSince = (now.getTime() - new Date(config.lastUpdateCheck).getTime()) / (1e3 * 60 * 60 * 24);
     if (daysSince < UPDATE_INTERVAL_DAYS) return;
   }
   try {
-    await (0, import_execa.execa)("git", ["-C", SETUP_KIT_DIR, "fetch", "origin"], { shell: true, timeout: 5e3 });
-    const { stdout: local } = await git("-C", SETUP_KIT_DIR, "rev-parse", "HEAD");
-    const { stdout: remote } = await git("-C", SETUP_KIT_DIR, "rev-parse", "origin/master");
+    (0, import_child_process.spawnSync)(resolveGitExe(), ["-C", SETUP_KIT_DIR, "fetch", "origin"], { stdio: "pipe", timeout: 5e3 });
+    const { stdout: local } = git("-C", SETUP_KIT_DIR, "rev-parse", "HEAD");
+    const { stdout: remote } = git("-C", SETUP_KIT_DIR, "rev-parse", "origin/master");
     const updateAvailable = local.trim() !== remote.trim();
     saveConfig({
       lastUpdateCheck: now.toISOString().slice(0, 10),
@@ -293,14 +295,14 @@ function fillProjectBrief(filePath, ctx) {
     "[FEATURE-3]": features[2] ?? ""
   });
 }
-async function gitInit(projectPath, userName, version) {
-  await git("-C", projectPath, "init", "-b", "main");
-  await git("-C", projectPath, "add", "-A");
-  await git("-C", projectPath, "-c", `user.name=${userName}`, "-c", "user.email=setup@local", "commit", "-m", `chore: initial project setup [v${version}]`);
+function gitInit(projectPath, userName, version) {
+  git("-C", projectPath, "init", "-b", "main");
+  git("-C", projectPath, "add", "-A");
+  git("-C", projectPath, "-c", `user.name=${userName}`, "-c", "user.email=setup@local", "commit", "-m", `chore: initial project setup [v${version}]`);
 }
-async function gitCommit(projectPath, userName, message) {
-  await git("-C", projectPath, "add", "-A");
-  await git("-C", projectPath, "-c", `user.name=${userName}`, "-c", "user.email=setup@local", "commit", "-m", message);
+function gitCommit(projectPath, userName, message) {
+  git("-C", projectPath, "add", "-A");
+  git("-C", projectPath, "-c", `user.name=${userName}`, "-c", "user.email=setup@local", "commit", "-m", message);
 }
 
 // src/wizard.ts
@@ -312,7 +314,7 @@ var import_chalk2 = __toESM(require("chalk"));
 async function checkPrerequisites() {
   console.log("");
   try {
-    const { stdout } = await git("--version");
+    const { stdout } = git("--version");
     console.log(import_chalk2.default.green(`  [OK] ${stdout.trim()}`));
   } catch {
     console.log(import_chalk2.default.yellow("  [ ] Git nicht gefunden \u2014 Git-Features (init, commit) nicht verfuegbar."));
@@ -626,7 +628,7 @@ async function installNewProject(projectPath, name, type, provider, versioning, 
 > Installation: ${today}
 `);
   console.log(import_chalk2.default.white("\n  Initialisiere Git-Repo..."));
-  await gitInit(projectPath, userName, versionStr);
+  gitInit(projectPath, userName, versionStr);
   console.log(import_chalk2.default.green(`  [OK] Git: main-Branch, erster Commit v${versionStr}`));
   if (provider !== "none") {
     console.log(import_chalk2.default.yellow("\n  NAECHSTER SCHRITT: Remote verbinden"));
@@ -810,7 +812,7 @@ async function updateExistingProject(projectPath, name, type, provider, versioni
       default: true
     }]);
     if (doCommit) {
-      await gitCommit(projectPath, userName, `chore: add claude-code setup (${added.join(", ")})`);
+      gitCommit(projectPath, userName, `chore: add claude-code setup (${added.join(", ")})`);
       console.log(import_chalk2.default.green("  [OK] Commit erstellt"));
     }
   } else {
@@ -957,12 +959,12 @@ async function runWizard() {
 var program = new import_commander.Command();
 program.name("setup-kit").description("Claude Code Setup Kit - portables Projekt-Setup-Tool").version("1.0.0");
 program.action(async () => {
-  await ensureSetupKit();
+  ensureSetupKit();
   checkForUpdatesInBackground();
   await runWizard();
 });
-program.command("update").description("Setup-Kit auf den neuesten Stand bringen").action(async () => {
-  await updateSetupKit();
+program.command("update").description("Setup-Kit auf den neuesten Stand bringen").action(() => {
+  updateSetupKit();
 });
 program.command("status").description("Voraussetzungen und installierte Skills pruefen").action(async () => {
   console.log(import_chalk3.default.cyan("\n=== Setup-Kit Status ==="));
