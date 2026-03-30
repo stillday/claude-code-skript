@@ -615,20 +615,26 @@ async function updateExistingProject(
 
 async function runProjectWizard(userName: string): Promise<void> {
   const projectsBase = getProjectsBase()
+  const cwd = process.cwd()
 
   console.log('')
-  console.log(chalk.gray(`  Standard-Projektordner: ${projectsBase}`))
-  console.log(chalk.gray('  Tipp: Nur den Namen eingeben -> landet im Standard-Ordner'))
+  console.log(chalk.gray(`  Aktueller Ordner: ${cwd}`))
+  console.log(chalk.gray('  Enter = aktuellen Ordner verwenden, oder Namen/Pfad eingeben'))
 
   const { pathInput } = await inquirer.prompt([{
     type: 'input', name: 'pathInput',
-    message: 'Projektname oder vollstaendiger Pfad:',
+    message: 'Projektordner:',
+    default: '.',
   }])
-  if (!pathInput) return
 
-  const projectPath = /^[A-Za-z]:[/\\]/.test(pathInput)
-    ? pathInput
-    : path.join(projectsBase, pathInput)
+  let projectPath: string
+  if (!pathInput || pathInput === '.') {
+    projectPath = cwd
+  } else if (/^[A-Za-z]:[/\\]/.test(pathInput)) {
+    projectPath = pathInput
+  } else {
+    projectPath = path.join(projectsBase, pathInput)
+  }
 
   console.log(chalk.cyan(`  Zielordner: ${projectPath}`))
 

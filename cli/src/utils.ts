@@ -47,10 +47,12 @@ function resolveGitExe(): string {
     if (found) { _gitExe = found; return _gitExe }
   } catch {}
 
-  // 5. Bekannte Windows-Installationspfade als letzter Fallback
+  // 5. Bekannte Windows/Git-Bash-Installationspfade als letzter Fallback
   const candidates = [
     'C:\\Program Files\\Git\\cmd\\git.exe',
     'C:\\Program Files\\Git\\bin\\git.exe',
+    'C:\\Program Files\\Git\\usr\\bin\\git.exe',
+    'C:\\Program Files\\Git\\mingw64\\bin\\git.exe',
     path.join(os.homedir(), 'AppData', 'Local', 'Programs', 'Git', 'cmd', 'git.exe'),
     'C:\\Program Files (x86)\\Git\\cmd\\git.exe',
   ]

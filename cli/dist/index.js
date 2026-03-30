@@ -69,6 +69,8 @@ function resolveGitExe() {
   const candidates = [
     "C:\\Program Files\\Git\\cmd\\git.exe",
     "C:\\Program Files\\Git\\bin\\git.exe",
+    "C:\\Program Files\\Git\\usr\\bin\\git.exe",
+    "C:\\Program Files\\Git\\mingw64\\bin\\git.exe",
     path.join(os.homedir(), "AppData", "Local", "Programs", "Git", "cmd", "git.exe"),
     "C:\\Program Files (x86)\\Git\\cmd\\git.exe"
   ];
@@ -817,16 +819,24 @@ async function updateExistingProject(projectPath, name, type, provider, versioni
 }
 async function runProjectWizard(userName) {
   const projectsBase = getProjectsBase();
+  const cwd = process.cwd();
   console.log("");
-  console.log(import_chalk2.default.gray(`  Standard-Projektordner: ${projectsBase}`));
-  console.log(import_chalk2.default.gray("  Tipp: Nur den Namen eingeben -> landet im Standard-Ordner"));
+  console.log(import_chalk2.default.gray(`  Aktueller Ordner: ${cwd}`));
+  console.log(import_chalk2.default.gray("  Enter = aktuellen Ordner verwenden, oder Namen/Pfad eingeben"));
   const { pathInput } = await import_inquirer.default.prompt([{
     type: "input",
     name: "pathInput",
-    message: "Projektname oder vollstaendiger Pfad:"
+    message: "Projektordner:",
+    default: "."
   }]);
-  if (!pathInput) return;
-  const projectPath = /^[A-Za-z]:[/\\]/.test(pathInput) ? pathInput : path2.join(projectsBase, pathInput);
+  let projectPath;
+  if (!pathInput || pathInput === ".") {
+    projectPath = cwd;
+  } else if (/^[A-Za-z]:[/\\]/.test(pathInput)) {
+    projectPath = pathInput;
+  } else {
+    projectPath = path2.join(projectsBase, pathInput);
+  }
   console.log(import_chalk2.default.cyan(`  Zielordner: ${projectPath}`));
   if (!fs2.existsSync(projectPath)) {
     const { create } = await import_inquirer.default.prompt([{
