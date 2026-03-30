@@ -321,8 +321,13 @@ async function checkPrerequisites() {
     console.log(import_chalk2.default.gray("      Installieren: winget install Git.Git"));
   }
   try {
-    await execa("claude", ["--version"]);
-    console.log(import_chalk2.default.green("  [OK] Claude Code gefunden"));
+    const { spawnSync: spawnSync2 } = await import("child_process");
+    const r = spawnSync2("claude", ["--version"], { encoding: "utf8", stdio: "pipe" });
+    if (r.status === 0) {
+      console.log(import_chalk2.default.green(`  [OK] Claude Code: ${r.stdout.trim()}`));
+    } else {
+      throw new Error("not found");
+    }
   } catch {
     console.log(import_chalk2.default.yellow("  [ ] Claude Code nicht gefunden"));
     console.log(import_chalk2.default.gray("      npm install -g @anthropic/claude-code"));
@@ -364,35 +369,99 @@ function checkSettings() {
     console.log(import_chalk2.default.gray("  settings.json vorhanden."));
   }
 }
-function showSkillsStatus() {
-  console.log(import_chalk2.default.cyan("\n--- Empfohlene Skills ---"));
-  const skillsDir = path2.join(CLAUDE_DIR, "skills");
-  const installed = fs2.existsSync(skillsDir) ? fs2.readdirSync(skillsDir).filter((f) => fs2.statSync(path2.join(skillsDir, f)).isDirectory()) : [];
-  const skills = [
-    { name: "svelte5-best-practices", cat: "Stack", prio: "HOCH" },
-    { name: "sveltekit-svelte5-tailwind-skill", cat: "Stack", prio: "HOCH" },
-    { name: "typescript-best-practices", cat: "Stack", prio: "HOCH" },
-    { name: "vitest", cat: "Testing", prio: "HOCH" },
-    { name: "owasp-security-check", cat: "Security", prio: "HOCH" },
-    { name: "security-review", cat: "Security", prio: "HOCH" },
-    { name: "git-commits", cat: "Workflow", prio: "HOCH" },
-    { name: "commit-guardian", cat: "Workflow", prio: "HOCH" },
-    { name: "adr-writer", cat: "Docs", prio: "HOCH" },
-    { name: "database-migrations", cat: "Datenbank", prio: "MITTEL" },
-    { name: "supabase-database", cat: "Datenbank", prio: "MITTEL" },
-    { name: "accessibility-a11y", cat: "UI/UX", prio: "MITTEL" },
-    { name: "performance-audit", cat: "Perf", prio: "MITTEL" },
-    { name: "gdpr-dsgvo-expert", cat: "Legal", prio: "MITTEL" },
-    { name: "logging-best-practices", cat: "Monitor", prio: "NIEDRIG" },
-    { name: "context7-mcp", cat: "Docs", prio: "NIEDRIG" }
+var CORE_SKILLS = [
+  "git-commits",
+  "commit-guardian",
+  "typescript-best-practices",
+  "owasp-security-check",
+  "security-review",
+  "adr-writer",
+  "vitest"
+];
+var STACK_SKILLS = {
+  sveltekit: [
+    "svelte5-best-practices",
+    "sveltekit-svelte5-tailwind-skill",
+    "tailwind-css",
+    "accessibility-a11y",
+    "svelte-css-animations"
+  ],
+  generic: [
+    "logging-best-practices"
+  ]
+};
+var FEATURE_SKILLS = {
+  hasDatabase: ["database-migrations", "supabase-database"],
+  hasUserData: ["gdpr-dsgvo-expert"],
+  isPerf: ["performance-audit"]
+};
+var CORE_MCPS = [
+  { name: "context7", note: "Doku-Lookup fuer jede Library" },
+  { name: "github", note: "Issues, PRs, Repos verwalten" }
+];
+var STACK_MCPS = {
+  sveltekit: [
+    { name: "playwright", note: "E2E-Tests" }
+  ],
+  generic: []
+};
+var FEATURE_MCPS = {
+  hasDatabase: [{ name: "supabase", note: "DB-Zugriff, Migrations, Edge Functions" }],
+  isPerf: [{ name: "sentry", note: "Error-Tracking und Performance" }]
+};
+function showMcpRecommendations(projectPath, projectType, ctx) {
+  const stackKey = projectType === "sveltekit" ? "sveltekit" : "generic";
+  const needed = [
+    ...CORE_MCPS,
+    ...STACK_MCPS[stackKey] ?? [],
+    ...ctx?.hasDatabase ? FEATURE_MCPS.hasDatabase : [],
+    ...ctx?.isPerf ? FEATURE_MCPS.isPerf : []
   ];
-  for (const s of skills) {
-    const ok = installed.includes(s.name);
-    const icon = ok ? "[OK]" : "[  ]";
-    const color = ok ? import_chalk2.default.green : s.prio === "HOCH" ? import_chalk2.default.red : import_chalk2.default.yellow;
-    console.log(color(`  ${icon} ${s.prio.padEnd(8)} ${s.cat.padEnd(12)} ${s.name}`));
+  const settingsFile = path2.join(projectPath, ".claude", "settings.json");
+  let configured = [];
+  if (fs2.existsSync(settingsFile)) {
+    try {
+      const s = fs2.readJsonSync(settingsFile);
+      configured = Object.keys(s.mcpServers ?? {});
+    } catch {
+    }
   }
-  console.log(import_chalk2.default.gray("\n  Fehlende Skills: /find-skills [name]"));
+  const missing = needed.filter((m) => !configured.includes(m.name));
+  console.log(import_chalk2.default.cyan("\n--- MCPs fuer dieses Projekt ---"));
+  console.log(import_chalk2.default.gray(`  Ort: ${settingsFile}`));
+  needed.filter((m) => configured.includes(m.name)).forEach((m) => console.log(import_chalk2.default.green(`  [OK] ${m.name.padEnd(14)} ${m.note}`)));
+  if (missing.length > 0) {
+    console.log(import_chalk2.default.yellow(`
+  Fehlende MCPs (${missing.length}) \u2014 in .claude/settings.json eintragen:`));
+    missing.forEach((m) => console.log(import_chalk2.default.gray(`    ${m.name.padEnd(14)} \u2014 ${m.note}`)));
+    console.log(import_chalk2.default.gray("\n  claude mcp add <name>  (im Projektordner ausfuehren)"));
+  }
+}
+function showSkillsStatus(projectPath, projectType, ctx) {
+  const skillsDir = path2.join(projectPath, ".claude", "skills");
+  const installed = fs2.existsSync(skillsDir) ? fs2.readdirSync(skillsDir).filter((f) => fs2.statSync(path2.join(skillsDir, f)).isDirectory()) : [];
+  const stackKey = projectType === "sveltekit" ? "sveltekit" : "generic";
+  const needed = [...CORE_SKILLS, ...STACK_SKILLS[stackKey] ?? []];
+  if (ctx?.hasDatabase) needed.push(...FEATURE_SKILLS.hasDatabase);
+  if (ctx?.hasUserData) needed.push(...FEATURE_SKILLS.hasUserData);
+  if (ctx?.isPerf) needed.push(...FEATURE_SKILLS.isPerf);
+  const missing = needed.filter((n) => !installed.includes(n));
+  console.log(import_chalk2.default.cyan("\n--- Skills fuer dieses Projekt ---"));
+  console.log(import_chalk2.default.gray(`  Ort: ${skillsDir}`));
+  const present = needed.filter((n) => installed.includes(n));
+  if (present.length > 0) {
+    present.forEach((n) => console.log(import_chalk2.default.green(`  [OK] ${n}`)));
+  }
+  if (missing.length > 0) {
+    console.log(import_chalk2.default.yellow(`
+  Fehlende Skills (${missing.length}) \u2014 im Projektordner installieren:`));
+    missing.forEach((n) => console.log(import_chalk2.default.gray(`    npx skills add ${n}`)));
+    console.log(import_chalk2.default.gray(`
+  Alle auf einmal:`));
+    console.log(import_chalk2.default.white(`    npx skills add ${missing.join(" ")}`));
+  } else {
+    console.log(import_chalk2.default.green("\n  Alle benoetigten Skills installiert."));
+  }
 }
 async function getProjectContext() {
   console.log("");
@@ -899,6 +968,12 @@ async function runProjectWizard(userName) {
       ]
     }]);
     await installNewProject(projectPath, name, type, provider, versioning, userName, ctx);
+    showSkillsStatus(projectPath, type, ctx);
+    showMcpRecommendations(projectPath, type, ctx);
+  }
+  if (isExisting) {
+    showSkillsStatus(projectPath);
+    showMcpRecommendations(projectPath);
   }
   console.log(import_chalk2.default.cyan(`
 === Projekt '${name}' eingerichtet ===`));
@@ -951,7 +1026,9 @@ async function runWizard() {
     await runProjectWizard(userName);
   }
   if (action === "skills") {
-    showSkillsStatus();
+    const cwd = process.cwd();
+    showSkillsStatus(cwd);
+    showMcpRecommendations(cwd);
   }
 }
 

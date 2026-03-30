@@ -35,8 +35,13 @@ export async function checkPrerequisites(): Promise<void> {
   }
 
   try {
-    await execa('claude', ['--version'])
-    console.log(chalk.green('  [OK] Claude Code gefunden'))
+    const { spawnSync } = await import('child_process')
+    const r = spawnSync('claude', ['--version'], { encoding: 'utf8', stdio: 'pipe' })
+    if (r.status === 0) {
+      console.log(chalk.green(`  [OK] Claude Code: ${r.stdout.trim()}`))
+    } else {
+      throw new Error('not found')
+    }
   } catch {
     console.log(chalk.yellow('  [ ] Claude Code nicht gefunden'))
     console.log(chalk.gray('      npm install -g @anthropic/claude-code'))
@@ -89,40 +94,129 @@ function checkSettings(): void {
 // SKILLS STATUS
 // ============================================================
 
-function showSkillsStatus(): void {
-  console.log(chalk.cyan('\n--- Empfohlene Skills ---'))
+// ============================================================
+// SKILLS — gestuft nach Bedarf, immer auf Projektebene
+// ============================================================
 
-  const skillsDir = path.join(CLAUDE_DIR, 'skills')
+const CORE_SKILLS = [
+  'git-commits',
+  'commit-guardian',
+  'typescript-best-practices',
+  'owasp-security-check',
+  'security-review',
+  'adr-writer',
+  'vitest',
+]
+
+const STACK_SKILLS: Record<string, string[]> = {
+  sveltekit: [
+    'svelte5-best-practices',
+    'sveltekit-svelte5-tailwind-skill',
+    'tailwind-css',
+    'accessibility-a11y',
+    'svelte-css-animations',
+  ],
+  generic: [
+    'logging-best-practices',
+  ],
+}
+
+const FEATURE_SKILLS: Record<string, string[]> = {
+  hasDatabase: ['database-migrations', 'supabase-database'],
+  hasUserData:  ['gdpr-dsgvo-expert'],
+  isPerf:       ['performance-audit'],
+}
+
+// ============================================================
+// MCPs — gestuft nach Bedarf, auf Projektebene (.claude/settings.json)
+// ============================================================
+
+const CORE_MCPS = [
+  { name: 'context7',  note: 'Doku-Lookup fuer jede Library' },
+  { name: 'github',    note: 'Issues, PRs, Repos verwalten' },
+]
+
+const STACK_MCPS: Record<string, Array<{ name: string; note: string }>> = {
+  sveltekit: [
+    { name: 'playwright', note: 'E2E-Tests' },
+  ],
+  generic: [],
+}
+
+const FEATURE_MCPS: Record<string, Array<{ name: string; note: string }>> = {
+  hasDatabase: [{ name: 'supabase', note: 'DB-Zugriff, Migrations, Edge Functions' }],
+  isPerf:      [{ name: 'sentry',   note: 'Error-Tracking und Performance' }],
+}
+
+function showMcpRecommendations(projectPath: string, projectType?: string, ctx?: Partial<ProjectContext>): void {
+  const stackKey = projectType === 'sveltekit' ? 'sveltekit' : 'generic'
+  const needed = [
+    ...CORE_MCPS,
+    ...(STACK_MCPS[stackKey] ?? []),
+    ...(ctx?.hasDatabase ? FEATURE_MCPS.hasDatabase : []),
+    ...(ctx?.isPerf       ? FEATURE_MCPS.isPerf       : []),
+  ]
+
+  // Pruefen welche bereits in .claude/settings.json konfiguriert sind
+  const settingsFile = path.join(projectPath, '.claude', 'settings.json')
+  let configured: string[] = []
+  if (fs.existsSync(settingsFile)) {
+    try {
+      const s = fs.readJsonSync(settingsFile) as { mcpServers?: Record<string, unknown> }
+      configured = Object.keys(s.mcpServers ?? {})
+    } catch {}
+  }
+
+  const missing = needed.filter(m => !configured.includes(m.name))
+
+  console.log(chalk.cyan('\n--- MCPs fuer dieses Projekt ---'))
+  console.log(chalk.gray(`  Ort: ${settingsFile}`))
+
+  needed.filter(m => configured.includes(m.name))
+    .forEach(m => console.log(chalk.green(`  [OK] ${m.name.padEnd(14)} ${m.note}`)))
+
+  if (missing.length > 0) {
+    console.log(chalk.yellow(`\n  Fehlende MCPs (${missing.length}) — in .claude/settings.json eintragen:`))
+    missing.forEach(m => console.log(chalk.gray(`    ${m.name.padEnd(14)} — ${m.note}`)))
+    console.log(chalk.gray('\n  claude mcp add <name>  (im Projektordner ausfuehren)'))
+  }
+}
+
+function showSkillsStatus(projectPath: string, projectType?: string, ctx?: Partial<ProjectContext>): void {
+  // Skills auf Projektebene pruefen (.claude/skills/ im Projektordner)
+  const skillsDir = path.join(projectPath, '.claude', 'skills')
   const installed = fs.existsSync(skillsDir)
     ? fs.readdirSync(skillsDir).filter(f => fs.statSync(path.join(skillsDir, f)).isDirectory())
     : []
 
-  const skills = [
-    { name: 'svelte5-best-practices',          cat: 'Stack',    prio: 'HOCH' },
-    { name: 'sveltekit-svelte5-tailwind-skill', cat: 'Stack',    prio: 'HOCH' },
-    { name: 'typescript-best-practices',        cat: 'Stack',    prio: 'HOCH' },
-    { name: 'vitest',                           cat: 'Testing',  prio: 'HOCH' },
-    { name: 'owasp-security-check',             cat: 'Security', prio: 'HOCH' },
-    { name: 'security-review',                  cat: 'Security', prio: 'HOCH' },
-    { name: 'git-commits',                      cat: 'Workflow', prio: 'HOCH' },
-    { name: 'commit-guardian',                  cat: 'Workflow', prio: 'HOCH' },
-    { name: 'adr-writer',                       cat: 'Docs',     prio: 'HOCH' },
-    { name: 'database-migrations',              cat: 'Datenbank',prio: 'MITTEL' },
-    { name: 'supabase-database',                cat: 'Datenbank',prio: 'MITTEL' },
-    { name: 'accessibility-a11y',               cat: 'UI/UX',    prio: 'MITTEL' },
-    { name: 'performance-audit',                cat: 'Perf',     prio: 'MITTEL' },
-    { name: 'gdpr-dsgvo-expert',                cat: 'Legal',    prio: 'MITTEL' },
-    { name: 'logging-best-practices',           cat: 'Monitor',  prio: 'NIEDRIG' },
-    { name: 'context7-mcp',                     cat: 'Docs',     prio: 'NIEDRIG' },
-  ]
+  const stackKey = projectType === 'sveltekit' ? 'sveltekit' : 'generic'
 
-  for (const s of skills) {
-    const ok = installed.includes(s.name)
-    const icon = ok ? '[OK]' : '[  ]'
-    const color = ok ? chalk.green : s.prio === 'HOCH' ? chalk.red : chalk.yellow
-    console.log(color(`  ${icon} ${s.prio.padEnd(8)} ${s.cat.padEnd(12)} ${s.name}`))
+  // Alle fuer dieses Projekt relevanten Skills zusammenstellen
+  const needed: string[] = [...CORE_SKILLS, ...(STACK_SKILLS[stackKey] ?? [])]
+  if (ctx?.hasDatabase) needed.push(...FEATURE_SKILLS.hasDatabase)
+  if (ctx?.hasUserData)  needed.push(...FEATURE_SKILLS.hasUserData)
+  if (ctx?.isPerf)       needed.push(...FEATURE_SKILLS.isPerf)
+
+  const missing = needed.filter(n => !installed.includes(n))
+
+  console.log(chalk.cyan('\n--- Skills fuer dieses Projekt ---'))
+  console.log(chalk.gray(`  Ort: ${skillsDir}`))
+
+  // Installierte anzeigen
+  const present = needed.filter(n => installed.includes(n))
+  if (present.length > 0) {
+    present.forEach(n => console.log(chalk.green(`  [OK] ${n}`)))
   }
-  console.log(chalk.gray('\n  Fehlende Skills: /find-skills [name]'))
+
+  // Fehlende mit Install-Befehl anzeigen
+  if (missing.length > 0) {
+    console.log(chalk.yellow(`\n  Fehlende Skills (${missing.length}) — im Projektordner installieren:`))
+    missing.forEach(n => console.log(chalk.gray(`    npx skills add ${n}`)))
+    console.log(chalk.gray(`\n  Alle auf einmal:`))
+    console.log(chalk.white(`    npx skills add ${missing.join(' ')}`))
+  } else {
+    console.log(chalk.green('\n  Alle benoetigten Skills installiert.'))
+  }
 }
 
 // ============================================================
@@ -702,6 +796,13 @@ async function runProjectWizard(userName: string): Promise<void> {
     }])
 
     await installNewProject(projectPath, name, type, provider, versioning, userName, ctx)
+    showSkillsStatus(projectPath, type, ctx)
+    showMcpRecommendations(projectPath, type, ctx)
+  }
+
+  if (isExisting) {
+    showSkillsStatus(projectPath)
+    showMcpRecommendations(projectPath)
   }
 
   console.log(chalk.cyan(`\n=== Projekt '${name}' eingerichtet ===`))
@@ -764,6 +865,8 @@ export async function runWizard(): Promise<void> {
   }
 
   if (action === 'skills') {
-    showSkillsStatus()
+    const cwd = process.cwd()
+    showSkillsStatus(cwd)
+    showMcpRecommendations(cwd)
   }
 }
